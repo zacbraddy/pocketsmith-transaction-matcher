@@ -9,7 +9,6 @@ import {
   transactionMatchingStart,
   transactionMatchingSuccess,
   transactionMatchingError,
-  interactiveMatchingStart,
 } from '../actions/transaction-matching.actions';
 import { DateTime } from 'luxon';
 import { env } from '@/env';
@@ -19,10 +18,18 @@ const useTransactionMatchingWatcher = (
   dispatch: Dispatch<Action>
 ) => {
   const isWithinBusinessDays = (date1: DateTime, date2: DateTime): boolean => {
+    if (!date1.isValid || !date2.isValid) {
+      return false;
+    }
+
     const daysDiff = Math.abs(date1.diff(date2, 'days').days);
 
     if (daysDiff <= env.daysTolerance) {
       return true;
+    }
+
+    if (daysDiff > env.daysTolerance + 2) {
+      return false;
     }
 
     let earlierDate = date1 < date2 ? date1 : date2;
@@ -30,12 +37,12 @@ const useTransactionMatchingWatcher = (
     let businessDaysCount = 0;
     let currentDate = earlierDate;
 
-    while (currentDate < laterDate && businessDaysCount <= 1) {
+    while (currentDate < laterDate && businessDaysCount <= env.daysTolerance) {
+      currentDate = currentDate.plus({ day: 1 });
       const dayOfWeek = currentDate.weekday;
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
         businessDaysCount++;
       }
-      currentDate = currentDate.plus({ day: 1 });
     }
 
     return businessDaysCount <= env.daysTolerance;
@@ -88,6 +95,18 @@ const useTransactionMatchingWatcher = (
           );
 
           if (isDateMatch && isValueMatch) {
+            const daysDiff = Math.abs(pocketsmithDate.diff(paypalTx.Date, 'days').days);
+            if (daysDiff > 7) {
+              console.warn(`⚠️ Suspicious match found:`, {
+                pocketsmithId: pocketsmithTx.id,
+                pocketsmithDate: pocketsmithDate.toFormat('dd/MM/yyyy'),
+                paypalDate: paypalTx.Date.toFormat('dd/MM/yyyy'),
+                daysDifference: daysDiff,
+                pocketsmithAmount: pocketsmithTx.amount,
+                paypalAmount: paypalTx.Amount,
+                paypalId: paypalTx.paypalTransactionId,
+              });
+            }
             matchingPaypalIds.push(paypalTx.paypalTransactionId);
           }
         }
@@ -201,15 +220,7 @@ const useTransactionMatchingWatcher = (
     dispatch,
   ]);
 
-  useEffect(() => {
-    if (
-      state.currentStep === StepTypes.TRANSACTION_MATCHING_SUCCESS &&
-      state.unmatchedTransactions &&
-      state.unmatchedTransactions.length > 0
-    ) {
-      dispatch(interactiveMatchingStart());
-    }
-  }, [state.currentStep, state.unmatchedTransactions, dispatch]);
+
 };
 
 export default useTransactionMatchingWatcher;

@@ -159,9 +159,43 @@ const transactionMatcherReducer = (
         state.paypalTransactionNumber &&
         state.payeeName
       ) {
+        const allMatchedTransactions = [
+          ...(state.successfullyMatchedTransactions || []),
+          ...(state.manuallyMatchedTransactions || []),
+        ];
+
+        const existingTransaction = allMatchedTransactions.find(
+          t => t.paypalTransactionId === state.paypalTransactionNumber
+        );
+
+        if (existingTransaction) {
+          return {
+            ...state,
+            paypalIdConflict: {
+              paypalId: state.paypalTransactionNumber,
+              existingTransaction,
+              currentTransaction,
+            },
+            waitingForConflictResolution: true,
+            waitingForUserInput: false,
+          };
+        }
+
+        const processedTransaction = state.transactions?.find(
+          t => t.paypalTransactionId === state.paypalTransactionNumber
+        );
+
         const manualMatchTimestamp = DateTime.now().setZone('Europe/London').toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS);
 
-        const updatedNote = `${currentTransaction.Note}\nManually matched on ${manualMatchTimestamp}\nManual PayPal Transaction ID: ${state.paypalTransactionNumber}`;
+        let updatedNote: string;
+        if (processedTransaction) {
+          updatedNote = processedTransaction.Note.replace(
+            /^Automatched from Paypal/,
+            `Manually matched from Paypal`
+          ) + `\nManually matched on ${manualMatchTimestamp}`;
+        } else {
+          updatedNote = `${currentTransaction.Note}\nManually matched on ${manualMatchTimestamp}\nManual PayPal Transaction ID: ${state.paypalTransactionNumber}`;
+        }
 
         const updatedTransaction: StandardisedTransaction = {
           ...currentTransaction,
@@ -171,8 +205,8 @@ const transactionMatcherReducer = (
           manuallyMatched: true,
         };
 
-        const updatedMatched = [
-          ...(state.successfullyMatchedTransactions || []),
+        const updatedManualMatches = [
+          ...(state.manuallyMatchedTransactions || []),
           updatedTransaction,
         ];
         const updatedUnmatched =
@@ -182,7 +216,7 @@ const transactionMatcherReducer = (
 
         return {
           ...state,
-          successfullyMatchedTransactions: updatedMatched,
+          manuallyMatchedTransactions: updatedManualMatches,
           unmatchedTransactions: updatedUnmatched,
           currentUnmatchedIndex: state.currentUnmatchedIndex,
           waitingForUserInput: updatedUnmatched.length > 0,
@@ -190,6 +224,107 @@ const transactionMatcherReducer = (
           paypalTransactionNumber: undefined,
           payeeName: undefined,
         };
+      }
+      return state;
+    case ActionTypes.PAYPAL_ID_CONFLICT_DETECTED:
+      const conflictPayload = action.payload as {
+        paypalId: string;
+        existingTransaction: StandardisedTransaction;
+        currentTransaction: StandardisedTransaction;
+      };
+      return {
+        ...state,
+        paypalIdConflict: conflictPayload,
+        waitingForConflictResolution: true,
+        waitingForUserInput: false,
+      };
+    case ActionTypes.RESOLVE_PAYPAL_ID_CONFLICT:
+      const resolutionPayload = action.payload as { keepExisting: boolean };
+      if (state.paypalIdConflict) {
+        const { existingTransaction, currentTransaction } = state.paypalIdConflict;
+
+        if (resolutionPayload.keepExisting) {
+          const updatedUnmatched = [
+            ...(state.unmatchedTransactions || []),
+            currentTransaction,
+          ];
+          return {
+            ...state,
+            unmatchedTransactions: updatedUnmatched,
+            paypalIdConflict: undefined,
+            waitingForConflictResolution: false,
+            waitingForUserInput: true,
+            userFoundMatch: undefined,
+            paypalTransactionNumber: undefined,
+            payeeName: undefined,
+          };
+        } else {
+          const paypalTransactionNumber = state.paypalTransactionNumber;
+          const payeeName = state.payeeName;
+
+          if (!paypalTransactionNumber || !payeeName) {
+            return state;
+          }
+
+          const allMatched = [
+            ...(state.successfullyMatchedTransactions || []),
+            ...(state.manuallyMatchedTransactions || []),
+          ];
+
+          const filteredMatched = allMatched.filter(
+            t => t.paypalTransactionId !== state.paypalIdConflict?.paypalId
+          );
+
+          const processedTransaction = state.transactions?.find(
+            t => t.paypalTransactionId === paypalTransactionNumber
+          );
+
+          const manualMatchTimestamp = DateTime.now().setZone('Europe/London').toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS);
+
+          let updatedNote: string;
+          if (processedTransaction) {
+            updatedNote = processedTransaction.Note.replace(
+              /^Automatched from Paypal/,
+              `Manually matched from Paypal`
+            ) + `\nManually matched on ${manualMatchTimestamp}`;
+          } else {
+            updatedNote = `${currentTransaction.Note}\nManually matched on ${manualMatchTimestamp}\nManual PayPal Transaction ID: ${paypalTransactionNumber}`;
+          }
+
+          const updatedTransaction: StandardisedTransaction = {
+            ...currentTransaction,
+            paypalTransactionId: paypalTransactionNumber,
+            Payee: payeeName,
+            Note: updatedNote,
+            manuallyMatched: true,
+          };
+
+          const updatedUnmatched = [
+            ...(state.unmatchedTransactions?.filter(
+              (_, index) => index !== state.currentUnmatchedIndex
+            ) || []),
+            existingTransaction,
+          ];
+
+          const autoMatched = filteredMatched.filter(t => !t.manuallyMatched);
+          const manualMatched = [
+            ...filteredMatched.filter(t => t.manuallyMatched),
+            updatedTransaction,
+          ];
+
+          return {
+            ...state,
+            successfullyMatchedTransactions: autoMatched,
+            manuallyMatchedTransactions: manualMatched,
+            unmatchedTransactions: updatedUnmatched,
+            paypalIdConflict: undefined,
+            waitingForConflictResolution: false,
+            waitingForUserInput: updatedUnmatched.length > 0,
+            userFoundMatch: undefined,
+            paypalTransactionNumber: undefined,
+            payeeName: undefined,
+          };
+        }
       }
       return state;
     case ActionTypes.INTERACTIVE_MATCHING_COMPLETE:
@@ -201,6 +336,64 @@ const transactionMatcherReducer = (
         userFoundMatch: undefined,
         paypalTransactionNumber: undefined,
         payeeName: undefined,
+        paypalIdConflict: undefined,
+        waitingForConflictResolution: false,
+      };
+    case ActionTypes.CONFIRMING_MATCHED_TRANSACTIONS_START:
+      return {
+        ...state,
+        currentStep: StepTypes.CONFIRMING_MATCHED_TRANSACTIONS,
+        confirmedMatches: [],
+        rejectedMatches: [],
+        currentMatchIndex: undefined,
+      };
+    case ActionTypes.SET_CURRENT_MATCH_INDEX:
+      return {
+        ...state,
+        currentMatchIndex: action.payload as number,
+      };
+    case ActionTypes.CONFIRM_MATCH:
+      const confirmedTransaction = state.successfullyMatchedTransactions?.[state.currentMatchIndex || 0];
+      if (confirmedTransaction) {
+        return {
+          ...state,
+          confirmedMatches: [...(state.confirmedMatches || []), confirmedTransaction],
+        };
+      }
+      return state;
+    case ActionTypes.REJECT_MATCH:
+      const rejectedTransaction = state.successfullyMatchedTransactions?.[state.currentMatchIndex || 0];
+      if (rejectedTransaction) {
+        return {
+          ...state,
+          rejectedMatches: [...(state.rejectedMatches || []), rejectedTransaction],
+        };
+      }
+      return state;
+    case ActionTypes.CONFIRMING_MATCHED_TRANSACTIONS_COMPLETE:
+      const payload = action.payload as {
+        totalPocketsmithTransactions: number;
+        automaticallyMatched: number;
+        manuallyMatched: number;
+        skippedDuringConfirmation: number;
+        remainingUnmatched: number;
+        unmatchedTransactions: StandardisedTransaction[];
+      };
+      return {
+        ...state,
+        finalStats: {
+          totalPocketsmithTransactions: payload.totalPocketsmithTransactions,
+          automaticallyMatched: payload.automaticallyMatched,
+          manuallyMatched: payload.manuallyMatched,
+          skippedDuringConfirmation: payload.skippedDuringConfirmation,
+          remainingUnmatched: payload.remainingUnmatched,
+        },
+        unmatchedTransactions: payload.unmatchedTransactions,
+      };
+    case ActionTypes.PROCESSING_COMPLETE:
+      return {
+        ...state,
+        currentStep: StepTypes.PROCESSING_COMPLETE,
       };
     default:
       return state;

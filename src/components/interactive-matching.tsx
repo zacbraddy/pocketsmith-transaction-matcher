@@ -10,6 +10,7 @@ import {
   userResponseFoundMatch,
   userResponseNoMatch,
   setManualMatchDetails,
+  resolvePaypalIdConflict,
 } from '../logic/actions/transaction-matching.actions';
 import { Dispatch } from 'react';
 import TextInput from 'ink-text-input';
@@ -30,7 +31,7 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
   dispatch,
 }) => {
   const [currentInput, setCurrentInput] = useState<
-    'waiting' | 'paypal-id' | 'payee-name'
+    'waiting' | 'paypal-id' | 'payee-name' | 'conflict-resolution'
   >('waiting');
   const [paypalId, setPaypalId] = useState('');
   const [payeeName, setPayeeName] = useState('');
@@ -38,24 +39,37 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
   const currentTransaction =
     state.unmatchedTransactions?.[state.currentUnmatchedIndex || 0];
 
-  if (!currentTransaction) {
+  if (!currentTransaction && !state.paypalIdConflict) {
     return null;
   }
 
+  const isConflictMode = state.waitingForConflictResolution && state.paypalIdConflict;
+
   const paypalUrl = useMemo(() => {
+    if (!currentTransaction) return '';
     return generatePayPalSearchUrl(currentTransaction.Date);
-  }, [currentTransaction.Date]);
+  }, [currentTransaction?.Date]);
 
   const progress = useMemo(() => {
+    if (isConflictMode) return 'Resolving conflict';
     return `${(state.currentUnmatchedIndex || 0) + 1}/${state.unmatchedTransactions?.length || 0}`;
-  }, [state.currentUnmatchedIndex, state.unmatchedTransactions?.length]);
+  }, [state.currentUnmatchedIndex, state.unmatchedTransactions?.length, isConflictMode]);
 
   const formattedDate = useMemo(() => {
+    if (!currentTransaction) return '';
     return currentTransaction.Date.toFormat('dd/MM/yyyy');
-  }, [currentTransaction.Date]);
+  }, [currentTransaction?.Date]);
 
   useInput((input, key) => {
-    if (currentInput === 'waiting') {
+    if (isConflictMode && currentInput === 'conflict-resolution') {
+      if (input === '1') {
+        dispatch(resolvePaypalIdConflict({ keepExisting: true }));
+        setCurrentInput('waiting');
+      } else if (input === '2') {
+        dispatch(resolvePaypalIdConflict({ keepExisting: false }));
+        setCurrentInput('waiting');
+      }
+    } else if (currentInput === 'waiting' && !isConflictMode) {
       if (input.toLowerCase() === 'y' || input.toLowerCase() === 'yes') {
         setCurrentInput('paypal-id');
         dispatch(userResponseFoundMatch());
@@ -64,6 +78,14 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
       }
     }
   });
+
+  useEffect(() => {
+    if (isConflictMode) {
+      setCurrentInput('conflict-resolution');
+    } else if (!state.waitingForUserInput) {
+      setCurrentInput('waiting');
+    }
+  }, [isConflictMode, state.waitingForUserInput]);
 
   const handlePaypalIdSubmit = (value: string) => {
     setPaypalId(value);
@@ -83,30 +105,67 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
     setPayeeName('');
   };
 
+  if (isConflictMode && state.paypalIdConflict) {
+    return (
+      <Box flexDirection="column" marginTop={1}>
+        <Text color="red">⚠️ PayPal ID Conflict Detected ({progress})</Text>
+
+        <Box
+          flexDirection="column"
+          marginTop={1}
+          padding={1}
+          borderStyle="round"
+          borderColor="red"
+        >
+          <Text color="red">🚨 Conflict Details:</Text>
+          <Text color="white">
+            PayPal ID "{state.paypalIdConflict.paypalId}" is already matched to:
+          </Text>
+          <Text color="yellow">
+            Existing: £{state.paypalIdConflict.existingTransaction.Amount.toFixed(2)} - {state.paypalIdConflict.existingTransaction.Payee} - {state.paypalIdConflict.existingTransaction.Date.toFormat('dd/MM/yyyy')}
+            {state.paypalIdConflict.existingTransaction.manuallyMatched ? ' (Manually matched)' : ' (Auto matched)'}
+          </Text>
+          <Text color="cyan">
+            Current: £{state.paypalIdConflict.currentTransaction.Amount.toFixed(2)} - {state.paypalIdConflict.currentTransaction.Payee} - {state.paypalIdConflict.currentTransaction.Date.toFormat('dd/MM/yyyy')}
+          </Text>
+        </Box>
+
+        <Box flexDirection="column" marginTop={1}>
+          <Text color="green">What would you like to do?</Text>
+          <Text color="white">1. Keep the existing match (current transaction will remain unmatched)</Text>
+          <Text color="white">2. Replace with new match (existing transaction will be unmatched)</Text>
+          <Text color="gray">Press 1 or 2 to choose</Text>
+        </Box>
+      </Box>
+    );
+  }
+
   return (
     <Box flexDirection="column" marginTop={1}>
       <Text color="cyan">🔍 Interactive Transaction Matching ({progress})</Text>
 
-      <Box
-        flexDirection="column"
-        marginTop={1}
-        padding={1}
-        borderStyle="round"
-        borderColor="yellow"
-      >
-        <Text color="yellow">📄 PocketSmith Transaction Details:</Text>
-        <Text color="white">
-          • Amount: £{currentTransaction.Amount.toFixed(2)}
-        </Text>
-        <Text color="white">
-          • Date: {formattedDate}
-        </Text>
-        <Text color="white">• Payee: {currentTransaction.Payee}</Text>
-        <Text color="white">• Note: {currentTransaction.Note}</Text>
-        <Text color="white">
-          • ID: {currentTransaction.pocketsmithTransactionId}
-        </Text>
-      </Box>
+      {currentTransaction && (
+        <Box
+          flexDirection="column"
+          marginTop={1}
+          padding={1}
+          borderStyle="round"
+          borderColor="yellow"
+        >
+          <Text color="yellow">📄 PocketSmith Transaction Details:</Text>
+          <Text color="white">
+            • Amount: £{currentTransaction.Amount.toFixed(2)}
+          </Text>
+          <Text color="white">
+            • Date: {formattedDate}
+          </Text>
+          <Text color="white">• Payee: {currentTransaction.Payee}</Text>
+          <Text color="white">• Note: {currentTransaction.Note}</Text>
+          <Text color="white">
+            • ID: {currentTransaction.pocketsmithTransactionId}
+          </Text>
+        </Box>
+      )}
 
       <Box flexDirection="column" marginTop={1}>
         <Text color="blue">🔗 PayPal Search Link:</Text>

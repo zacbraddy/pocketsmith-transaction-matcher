@@ -3,7 +3,6 @@ import { Action } from '../actions/action.types';
 import {
   StepTypes,
   TransactionMatcherState,
-  PocketSmithTransaction,
 } from '../types';
 import {
   pocketsmithFetchStart,
@@ -11,8 +10,8 @@ import {
   pocketsmithFetchError,
 } from '../actions/pocketsmith-fetch.actions';
 import { DateTime } from 'luxon';
-import { createPocketSmithClient } from 'pocketsmith-ts';
 import { env } from '@/env';
+import { fetchUserTransactions } from '../services';
 
 const usePocketSmithFetchWatcher = (
   state: TransactionMatcherState,
@@ -47,66 +46,17 @@ const usePocketSmithFetchWatcher = (
       const dateRange = calculateDateRange();
       dispatch(pocketsmithFetchStart(dateRange));
 
-      const client = createPocketSmithClient({
-        apiKey: env.pocketsmithApiKey,
-        baseUrl: env.pocketsmithBaseUrl,
+      const transactions = await fetchUserTransactions({
+        dateRange: {
+          startDate: dateRange.startDate!,
+          endDate: dateRange.endDate!,
+        },
+        search: 'Paypal',
+        uncategorised: true,
+        perPage: 1000,
       });
 
-      const { data: user, error: userError } = await client.GET('/me');
-
-      if (userError) {
-        throw new Error(`Failed to fetch user: ${JSON.stringify(userError)}`);
-      }
-
-      const userId = user.id;
-
-      const { data: rawTransactions, error: transactionsError } =
-        await client.GET('/users/{id}/transactions', {
-          params: {
-            path: { id: userId },
-            query: {
-              start_date: dateRange.startDate?.toFormat('yyyy-MM-dd'),
-              end_date: dateRange.endDate?.toFormat('yyyy-MM-dd'),
-              uncategorised: 1,
-              search: 'Paypal',
-              per_page: 1000,
-            },
-          },
-        });
-
-      if (transactionsError) {
-        throw new Error(
-          `Failed to fetch transactions: ${JSON.stringify(transactionsError)}`
-        );
-      }
-
-      if (!rawTransactions || rawTransactions.length === 0) {
-        throw new Error('No transactions found in PocketSmith');
-      }
-
-      const allTransactions: PocketSmithTransaction[] = [];
-
-      if (rawTransactions && rawTransactions.length > 0) {
-        const mappedTransactions = rawTransactions
-          .filter(transaction =>
-            transaction.payee?.toLowerCase().includes('paypal')
-          )
-          .map(transaction => ({
-            id: transaction.id || 0,
-            payee: transaction.payee || '',
-            amount: transaction.amount || 0,
-            date: transaction.date || '',
-            memo: transaction.memo || '',
-            labels: transaction.labels || [],
-            account_id: transaction.transaction_account?.id || 0,
-            category_id: transaction.category?.id || 0,
-            needs_review: transaction.needs_review || false,
-          }));
-
-        allTransactions.push(...mappedTransactions);
-      }
-
-      dispatch(pocketsmithFetchSuccess(allTransactions));
+      dispatch(pocketsmithFetchSuccess(transactions));
     } catch (error) {
       dispatch(
         pocketsmithFetchError(

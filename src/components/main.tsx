@@ -6,6 +6,8 @@ import { env } from '../env';
 import Spinner from 'ink-spinner';
 import { DateTime } from 'luxon';
 import InteractiveMatching from './interactive-matching';
+import MatchConfirmation from './match-confirmation';
+import FinalStatistics from './final-statistics';
 
 const getDisplayMessage = (state: TransactionMatcherState) => {
   switch (state.currentStep) {
@@ -28,13 +30,17 @@ const getDisplayMessage = (state: TransactionMatcherState) => {
     case StepTypes.MATCHING_TRANSACTIONS:
       return '🔗 Matching transactions...';
     case StepTypes.TRANSACTION_MATCHING_SUCCESS:
-      return `✅ Successfully matched ${state.successfullyMatchedTransactions?.length || 0} transactions, ${state.unmatchedTransactions?.length || 0} remain unmatched`;
+      return `✅ Auto-matched ${state.successfullyMatchedTransactions?.length || 0} transactions, ${state.unmatchedTransactions?.length || 0} need manual review`;
     case StepTypes.TRANSACTION_MATCHING_ERROR:
       return `❌ Error matching transactions: ${state.transactionMatchingError}`;
+    case StepTypes.CONFIRMING_MATCHED_TRANSACTIONS:
+      return `🔍 Confirming matches - ${(state.currentMatchIndex || 0) + 1}/${state.successfullyMatchedTransactions?.length || 0} transactions`;
     case StepTypes.INTERACTIVE_MATCHING:
       return `🔍 Interactive matching in progress - ${(state.currentUnmatchedIndex || 0) + 1}/${state.unmatchedTransactions?.length || 0} transactions`;
     case StepTypes.INTERACTIVE_MATCHING_COMPLETE:
       return `✅ Interactive matching complete! All transactions processed`;
+    case StepTypes.PROCESSING_COMPLETE:
+      return `🎉 All processing complete!`;
     default:
       return 'PocketSmith Transaction Matcher is starting up...';
   }
@@ -65,7 +71,10 @@ const Main = () => {
     state.pocketsmithFetchDateRange,
     state.successfullyMatchedTransactions,
     state.unmatchedTransactions,
+    state.manuallyMatchedTransactions,
     state.transactionMatchingError,
+    state.currentMatchIndex,
+    state.currentUnmatchedIndex,
   ]);
 
   return (
@@ -136,21 +145,14 @@ const Main = () => {
       {state.successfullyMatchedTransactions &&
         state.successfullyMatchedTransactions.length > 0 && (
           <Box flexDirection="column" marginTop={1}>
-            <Text color="cyan">🔗 Successfully Matched Transactions:</Text>
-            {state.successfullyMatchedTransactions
-              .slice(0, 5)
-              .map((transaction, index) => (
-                <Text key={index} color="white">
-                  • £{transaction.Amount.toFixed(2)} - {transaction.Payee} -{' '}
-                  {transaction.Date.toFormat('dd/MM/yyyy')} (PS:{' '}
-                  {transaction.pocketsmithTransactionId})
-                </Text>
-              ))}
-            {state.successfullyMatchedTransactions.length > 5 && (
-              <Text color="gray">
-                ... and {state.successfullyMatchedTransactions.length - 5} more
-              </Text>
-            )}
+            <Text color="cyan">🤖 Auto-Matched Transactions: {state.successfullyMatchedTransactions.length} total</Text>
+          </Box>
+        )}
+
+      {state.manuallyMatchedTransactions &&
+        state.manuallyMatchedTransactions.length > 0 && (
+          <Box flexDirection="column" marginTop={1}>
+            <Text color="green">🤝 Manually Matched Transactions: {state.manuallyMatchedTransactions.length} total</Text>
           </Box>
         )}
 
@@ -159,25 +161,26 @@ const Main = () => {
         state.currentStep !== StepTypes.INTERACTIVE_MATCHING && (
           <Box flexDirection="column" marginTop={1}>
             <Text color="yellow">⚠️ Unmatched PocketSmith Transactions:</Text>
-            {state.unmatchedTransactions
-              .slice(0, 5)
-              .map((transaction, index) => (
-                <Text key={index} color="white">
-                  • £{transaction.Amount.toFixed(2)} - {transaction.Payee} -{' '}
-                  {transaction.Date.toFormat('dd/MM/yyyy')} (PS:{' '}
-                  {transaction.pocketsmithTransactionId})
-                </Text>
-              ))}
-            {state.unmatchedTransactions.length > 5 && (
-              <Text color="gray">
-                ... and {state.unmatchedTransactions.length - 5} more
+            {state.unmatchedTransactions.map((transaction, index) => (
+              <Text key={index} color="white">
+                • £{transaction.Amount.toFixed(2)} - {transaction.Payee} -{' '}
+                {transaction.Date.toFormat('dd/MM/yyyy')} (PS:{' '}
+                {transaction.pocketsmithTransactionId})
               </Text>
-            )}
+            ))}
           </Box>
         )}
 
+      {state.currentStep === StepTypes.CONFIRMING_MATCHED_TRANSACTIONS && (
+        <MatchConfirmation state={state} dispatch={dispatch} />
+      )}
+
       {state.currentStep === StepTypes.INTERACTIVE_MATCHING && (
         <InteractiveMatching state={state} dispatch={dispatch} />
+      )}
+
+      {state.currentStep === StepTypes.PROCESSING_COMPLETE && (
+        <FinalStatistics state={state} />
       )}
     </Box>
   );

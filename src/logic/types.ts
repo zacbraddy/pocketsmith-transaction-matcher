@@ -12,8 +12,10 @@ export enum StepTypes {
   MATCHING_TRANSACTIONS = 'MATCHING_TRANSACTIONS',
   TRANSACTION_MATCHING_SUCCESS = 'TRANSACTION_MATCHING_SUCCESS',
   TRANSACTION_MATCHING_ERROR = 'TRANSACTION_MATCHING_ERROR',
+  CONFIRMING_MATCHED_TRANSACTIONS = 'CONFIRMING_MATCHED_TRANSACTIONS',
   INTERACTIVE_MATCHING = 'INTERACTIVE_MATCHING',
   INTERACTIVE_MATCHING_COMPLETE = 'INTERACTIVE_MATCHING_COMPLETE',
+  PROCESSING_COMPLETE = 'PROCESSING_COMPLETE',
 }
 
 // PayPal CSV transaction structure
@@ -84,4 +86,21 @@ export interface TransactionMatcherState {
   userFoundMatch?: boolean;
   paypalTransactionNumber?: string;
   payeeName?: string;
+  currentMatchIndex?: number;
+  confirmedMatches?: StandardisedTransaction[];
+  rejectedMatches?: StandardisedTransaction[];
+  manuallyMatchedTransactions?: StandardisedTransaction[];
+  paypalIdConflict?: {
+    paypalId: string;
+    existingTransaction: StandardisedTransaction;
+    currentTransaction: StandardisedTransaction;
+  };
+  waitingForConflictResolution?: boolean;
+  finalStats?: {
+    totalPocketsmithTransactions: number;
+    automaticallyMatched: number;
+    manuallyMatched: number;
+    skippedDuringConfirmation: number;
+    remainingUnmatched: number;
+  };
 }

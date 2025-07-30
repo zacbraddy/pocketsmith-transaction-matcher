@@ -15,6 +15,7 @@ const useInteractiveMatchingWatcher = (
     if (
       state.currentStep === StepTypes.INTERACTIVE_MATCHING &&
       !state.waitingForUserInput &&
+      !state.waitingForConflictResolution &&
       state.userFoundMatch === false &&
       state.unmatchedTransactions &&
       state.currentUnmatchedIndex !== undefined
@@ -30,6 +31,7 @@ const useInteractiveMatchingWatcher = (
   }, [
     state.currentStep,
     state.waitingForUserInput,
+    state.waitingForConflictResolution,
     state.userFoundMatch,
     state.unmatchedTransactions,
     state.currentUnmatchedIndex,
@@ -40,6 +42,7 @@ const useInteractiveMatchingWatcher = (
     if (
       state.currentStep === StepTypes.INTERACTIVE_MATCHING &&
       !state.waitingForUserInput &&
+      !state.waitingForConflictResolution &&
       state.userFoundMatch === true &&
       state.paypalTransactionNumber &&
       state.payeeName
@@ -49,6 +52,7 @@ const useInteractiveMatchingWatcher = (
   }, [
     state.currentStep,
     state.waitingForUserInput,
+    state.waitingForConflictResolution,
     state.userFoundMatch,
     state.paypalTransactionNumber,
     state.payeeName,

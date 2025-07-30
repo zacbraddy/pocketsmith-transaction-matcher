@@ -52,6 +52,22 @@ export const processManualMatch = (): Action => ({
   payload: null,
 });
 
+export const paypalIdConflictDetected = (payload: {
+  paypalId: string;
+  existingTransaction: StandardisedTransaction;
+  currentTransaction: StandardisedTransaction;
+}): Action => ({
+  type: ActionTypes.PAYPAL_ID_CONFLICT_DETECTED,
+  payload,
+});
+
+export const resolvePaypalIdConflict = (payload: {
+  keepExisting: boolean;
+}): Action => ({
+  type: ActionTypes.RESOLVE_PAYPAL_ID_CONFLICT,
+  payload,
+});
+
 export const interactiveMatchingComplete = (): Action => ({
   type: ActionTypes.INTERACTIVE_MATCHING_COMPLETE,
   payload: null,
