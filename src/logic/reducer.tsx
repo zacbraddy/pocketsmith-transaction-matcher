@@ -1,6 +1,6 @@
 import unique from "just-unique";
 import { Action, ActionTypes } from "./actions/action.types";
-import { StepTypes, TransactionMatcherState, StandardisedTransaction } from "./types";
+import { StepTypes, TransactionMatcherState, StandardisedTransaction, PocketSmithTransaction } from "./types";
 
 const transactionMatcherReducer = (state: TransactionMatcherState, action: Action): TransactionMatcherState => {
   switch (action.type) {
@@ -44,6 +44,27 @@ const transactionMatcherReducer = (state: TransactionMatcherState, action: Actio
         ...state,
         currentStep: StepTypes.CSV_PROCESSING_ERROR,
         csvProcessingError: action.payload as string
+      };
+    case ActionTypes.POCKETSMITH_FETCH_START:
+      return {
+        ...state,
+        currentStep: StepTypes.FETCHING_POCKETSMITH_TRANSACTIONS,
+        pocketsmithFetchError: undefined,
+        pocketsmithTransactions: undefined,
+        pocketsmithFetchDateRange: action.payload as { startDate: string; endDate: string }
+      };
+    case ActionTypes.POCKETSMITH_FETCH_SUCCESS:
+      return {
+        ...state,
+        currentStep: StepTypes.POCKETSMITH_FETCH_SUCCESS,
+        pocketsmithTransactions: action.payload as PocketSmithTransaction[],
+        pocketsmithFetchError: undefined
+      };
+    case ActionTypes.POCKETSMITH_FETCH_ERROR:
+      return {
+        ...state,
+        currentStep: StepTypes.POCKETSMITH_FETCH_ERROR,
+        pocketsmithFetchError: action.payload as string
       };
     default:
       return state;

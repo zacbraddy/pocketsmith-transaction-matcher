@@ -4,6 +4,7 @@ import { StepTypes, TransactionMatcherState } from '@/logic/types';
 import { useEffect, useState } from 'react';
 import { env } from '../env';
 import Spinner from 'ink-spinner';
+import { DateTime } from 'luxon';
 
 const getDisplayMessage = (state: TransactionMatcherState) => {
   switch (state.currentStep) {
@@ -17,6 +18,12 @@ const getDisplayMessage = (state: TransactionMatcherState) => {
       return `✅ Successfully processed ${state.csvFiles?.length || 0} CSV file${(state.csvFiles?.length || 0) !== 1 ? 's' : ''} with ${state.totalTransactions || 0} total transactions`;
     case StepTypes.CSV_PROCESSING_ERROR:
       return `❌ Error processing CSV files: ${state.csvProcessingError}`;
+    case StepTypes.FETCHING_POCKETSMITH_TRANSACTIONS:
+      return `🔄 Fetching PocketSmith transactions from ${state.pocketsmithFetchDateRange?.startDate} to ${state.pocketsmithFetchDateRange?.endDate}...`;
+    case StepTypes.POCKETSMITH_FETCH_SUCCESS:
+      return `✅ Successfully fetched ${state.pocketsmithTransactions?.length || 0} PocketSmith transactions`;
+    case StepTypes.POCKETSMITH_FETCH_ERROR:
+      return `❌ Error fetching PocketSmith transactions: ${state.pocketsmithFetchError}`;
     default:
       return 'PocketSmith Transaction Matcher is starting up...';
   }
@@ -34,7 +41,7 @@ const Main = () => {
       }
       return prevBuffer;
     });
-  }, [state.currentStep, state.csvProcessingError, state.csvFiles, state.totalTransactions]);
+  }, [state.currentStep, state.csvProcessingError, state.csvFiles, state.totalTransactions, state.pocketsmithFetchError, state.pocketsmithTransactions, state.pocketsmithFetchDateRange]);
 
   return (
     <Box flexDirection="column">
@@ -55,7 +62,7 @@ const Main = () => {
           return (
             <Box key={index} flexDirection="row">
               <Text color={color}>{message}</Text>
-              {isLatest && state.currentStep === StepTypes.IS_PROCESSING_CSV && (
+              {isLatest && (state.currentStep === StepTypes.IS_PROCESSING_CSV || state.currentStep === StepTypes.FETCHING_POCKETSMITH_TRANSACTIONS) && (
                 <Box marginLeft={1}>
                   <Spinner type="fistBump" />
                 </Box>
@@ -73,6 +80,15 @@ const Main = () => {
               • {csv}: {state.totalTransactionsPerCSV?.[csv] || 0} transactions
             </Text>
           ))}
+        </Box>
+      )}
+
+      {state.pocketsmithTransactions && state.pocketsmithTransactions.length > 0 && (
+        <Box flexDirection="column" marginTop={1}>
+          <Text color="cyan">💳 PocketSmith Transactions Fetched:</Text>
+          <Text color="white">
+            • {state.pocketsmithTransactions.length} transactions from {state.pocketsmithFetchDateRange?.startDate?.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)} to {state.pocketsmithFetchDateRange?.endDate?.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}
+          </Text>
         </Box>
       )}
     </Box>

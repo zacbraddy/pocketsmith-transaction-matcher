@@ -1,9 +1,14 @@
+import { DateTime } from "luxon";
+
 export enum StepTypes {
   INITIALISING = 'INITIALISING',
   PROCESSING_INPUTS = 'PROCESSING_INPUTS',
   IS_PROCESSING_CSV = 'IS_PROCESSING_CSV',
   CSV_PROCESSING_SUCCESS = 'CSV_PROCESSING_SUCCESS',
   CSV_PROCESSING_ERROR = 'CSV_PROCESSING_ERROR',
+  FETCHING_POCKETSMITH_TRANSACTIONS = 'FETCHING_POCKETSMITH_TRANSACTIONS',
+  POCKETSMITH_FETCH_SUCCESS = 'POCKETSMITH_FETCH_SUCCESS',
+  POCKETSMITH_FETCH_ERROR = 'POCKETSMITH_FETCH_ERROR',
 }
 
 // PayPal CSV transaction structure
@@ -29,12 +34,24 @@ export interface PayPalTransaction {
 }
 
 export interface StandardisedTransaction {
-  Date: string;
+  Date: DateTime;
   Note: string;
   Amount: number;
   Payee: string;
   Labels: string[];
   OriginalCSV?: string;
+}
+
+export interface PocketSmithTransaction {
+  id: number;
+  payee: string;
+  amount: number;
+  date: string;
+  memo: string;
+  labels?: string[];
+  account_id: number;
+  category_id?: number;
+  needs_review: boolean;
 }
 
 export interface TransactionMatcherState {
@@ -44,4 +61,10 @@ export interface TransactionMatcherState {
   csvProcessingError?: string;
   totalTransactions?: number;
   totalTransactionsPerCSV?: Record<string, number>;
+  pocketsmithTransactions?: PocketSmithTransaction[];
+  pocketsmithFetchError?: string;
+  pocketsmithFetchDateRange?: {
+    startDate: string;
+    endDate: string;
+  };
 }

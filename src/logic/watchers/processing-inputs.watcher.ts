@@ -64,7 +64,7 @@ const useProcessingInputsWatcher = (state: TransactionMatcherState, dispatch: Di
           }
 
           return {
-            Date: transaction.Date,
+            Date: DateTime.fromFormat(`${transaction.Date} ${transaction.Time}`, "dd/MM/yyyy HH:mm:ss", { zone: transaction["Time Zone"] }).setZone("Europe/London"),
             Payee: transaction.Name,
             Note: `Converted from Paypal on ${runDate.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}\nOriginal Paypal Transaction ID: ${transaction["Transaction ID"]}\nOriginal Paypal Date: ${DateTime.fromISO(`${transaction.Date} ${transaction.Time}`, { zone: transaction["Time Zone"] }).setZone("Europe/London").toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}\nOriginal Paypal Amount: ${transaction.Gross} ${transaction.Currency}`,
             Amount: Number(transaction.Gross) * rate,
