@@ -18,3 +18,41 @@ export const transactionMatchingError = (errorMessage: string): Action => ({
   type: ActionTypes.TRANSACTION_MATCHING_ERROR,
   payload: errorMessage,
 });
+
+export const interactiveMatchingStart = (): Action => ({
+  type: ActionTypes.INTERACTIVE_MATCHING_START,
+  payload: null,
+});
+
+export const setCurrentUnmatchedTransaction = (index: number): Action => ({
+  type: ActionTypes.SET_CURRENT_UNMATCHED_TRANSACTION,
+  payload: index,
+});
+
+export const userResponseFoundMatch = (): Action => ({
+  type: ActionTypes.USER_RESPONSE_FOUND_MATCH,
+  payload: null,
+});
+
+export const userResponseNoMatch = (): Action => ({
+  type: ActionTypes.USER_RESPONSE_NO_MATCH,
+  payload: null,
+});
+
+export const setManualMatchDetails = (payload: {
+  paypalTransactionNumber: string;
+  payeeName: string;
+}): Action => ({
+  type: ActionTypes.SET_MANUAL_MATCH_DETAILS,
+  payload,
+});
+
+export const processManualMatch = (): Action => ({
+  type: ActionTypes.PROCESS_MANUAL_MATCH,
+  payload: null,
+});
+
+export const interactiveMatchingComplete = (): Action => ({
+  type: ActionTypes.INTERACTIVE_MATCHING_COMPLETE,
+  payload: null,
+});

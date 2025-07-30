@@ -1,11 +1,23 @@
-import { Dispatch, useEffect } from "react";
-import { Action } from "../actions/action.types";
-import { StepTypes, TransactionMatcherState, StandardisedTransaction } from "../types";
-import { transactionMatchingStart, transactionMatchingSuccess, transactionMatchingError } from "../actions/transaction-matching.actions";
-import { DateTime } from "luxon";
-import { env } from "@/env";
+import { Dispatch, useEffect } from 'react';
+import { Action } from '../actions/action.types';
+import {
+  StepTypes,
+  TransactionMatcherState,
+  StandardisedTransaction,
+} from '../types';
+import {
+  transactionMatchingStart,
+  transactionMatchingSuccess,
+  transactionMatchingError,
+  interactiveMatchingStart,
+} from '../actions/transaction-matching.actions';
+import { DateTime } from 'luxon';
+import { env } from '@/env';
 
-const useTransactionMatchingWatcher = (state: TransactionMatcherState, dispatch: Dispatch<Action>) => {
+const useTransactionMatchingWatcher = (
+  state: TransactionMatcherState,
+  dispatch: Dispatch<Action>
+) => {
   const isWithinBusinessDays = (date1: DateTime, date2: DateTime): boolean => {
     const daysDiff = Math.abs(date1.diff(date2, 'days').days);
 
@@ -29,12 +41,19 @@ const useTransactionMatchingWatcher = (state: TransactionMatcherState, dispatch:
     return businessDaysCount <= env.daysTolerance;
   };
 
-  const isAmountMatch = (pocketsmithAmount: number, paypalAmount: number, isForeignCurrency: boolean): boolean => {
+  const isAmountMatch = (
+    pocketsmithAmount: number,
+    paypalAmount: number,
+    isForeignCurrency: boolean
+  ): boolean => {
     if (!isForeignCurrency) {
-      return Math.abs(pocketsmithAmount - paypalAmount) < env.amountToleranceExact;
+      return (
+        Math.abs(pocketsmithAmount - paypalAmount) < env.amountToleranceExact
+      );
     }
 
-    const allowedVariance = Math.abs(pocketsmithAmount) * env.amountToleranceForeignPercent;
+    const allowedVariance =
+      Math.abs(pocketsmithAmount) * env.amountToleranceForeignPercent;
     return Math.abs(pocketsmithAmount - paypalAmount) <= allowedVariance;
   };
 
@@ -43,7 +62,7 @@ const useTransactionMatchingWatcher = (state: TransactionMatcherState, dispatch:
       dispatch(transactionMatchingStart());
 
       if (!state.pocketsmithTransactions || !state.transactions) {
-        throw new Error("Missing transaction data for matching");
+        throw new Error('Missing transaction data for matching');
       }
 
       const pocketsmithTransactions = state.pocketsmithTransactions;
@@ -58,7 +77,10 @@ const useTransactionMatchingWatcher = (state: TransactionMatcherState, dispatch:
         for (const paypalTx of paypalTransactions) {
           if (!paypalTx.paypalTransactionId) continue;
 
-          const isDateMatch = isWithinBusinessDays(pocketsmithDate, paypalTx.Date);
+          const isDateMatch = isWithinBusinessDays(
+            pocketsmithDate,
+            paypalTx.Date
+          );
           const isValueMatch = isAmountMatch(
             pocketsmithTx.amount,
             paypalTx.Amount,
@@ -83,17 +105,21 @@ const useTransactionMatchingWatcher = (state: TransactionMatcherState, dispatch:
         let matchMade = false;
 
         for (const [pocketsmithId, paypalIds] of potentialMatches.entries()) {
-          const availablePaypalIds = paypalIds.filter(id => !usedPaypalIds.has(id));
+          const availablePaypalIds = paypalIds.filter(
+            id => !usedPaypalIds.has(id)
+          );
 
           if (availablePaypalIds.length > 0) {
             const selectedPaypalId = availablePaypalIds[0];
 
-            const paypalTransaction = paypalTransactions.find(tx => tx.paypalTransactionId === selectedPaypalId);
+            const paypalTransaction = paypalTransactions.find(
+              tx => tx.paypalTransactionId === selectedPaypalId
+            );
 
             if (paypalTransaction) {
               const matchedTransaction: StandardisedTransaction = {
                 ...paypalTransaction,
-                pocketsmithTransactionId: pocketsmithId
+                pocketsmithTransactionId: pocketsmithId,
               };
 
               successfullyMatchedTransactions.push(matchedTransaction);
@@ -106,7 +132,9 @@ const useTransactionMatchingWatcher = (state: TransactionMatcherState, dispatch:
         }
 
         for (const [pocketsmithId, paypalIds] of potentialMatches.entries()) {
-          const availablePaypalIds = paypalIds.filter(id => !usedPaypalIds.has(id));
+          const availablePaypalIds = paypalIds.filter(
+            id => !usedPaypalIds.has(id)
+          );
 
           if (availablePaypalIds.length === 0) {
             unmatchedPocketsmithIds.add(pocketsmithId);
@@ -124,35 +152,64 @@ const useTransactionMatchingWatcher = (state: TransactionMatcherState, dispatch:
         }
       }
 
-      const unmatchedTransactions: StandardisedTransaction[] = pocketsmithTransactions
-        .filter(psTx => !successfullyMatchedTransactions.some(matched => matched.pocketsmithTransactionId === psTx.id))
-        .map(psTx => ({
-          Date: DateTime.fromISO(psTx.date),
-          Note: psTx.memo,
-          Amount: psTx.amount,
-          Payee: psTx.payee,
-          Labels: psTx.labels || [],
-          pocketsmithTransactionId: psTx.id
-        }));
+      const unmatchedTransactions: StandardisedTransaction[] =
+        pocketsmithTransactions
+          .filter(
+            psTx =>
+              !successfullyMatchedTransactions.some(
+                matched => matched.pocketsmithTransactionId === psTx.id
+              )
+          )
+          .map(psTx => ({
+            Date: DateTime.fromISO(psTx.date),
+            Note: psTx.memo,
+            Amount: psTx.amount,
+            Payee: psTx.payee,
+            Labels: psTx.labels || [],
+            pocketsmithTransactionId: psTx.id,
+          }));
 
-      dispatch(transactionMatchingSuccess({
-        successfullyMatchedTransactions,
-        unmatchedTransactions
-      }));
-
+      dispatch(
+        transactionMatchingSuccess({
+          successfullyMatchedTransactions,
+          unmatchedTransactions,
+        })
+      );
     } catch (error) {
-      dispatch(transactionMatchingError(`Error matching transactions: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      dispatch(
+        transactionMatchingError(
+          `Error matching transactions: ${error instanceof Error ? error.message : 'Unknown error'}`
+        )
+      );
     }
   };
 
   useEffect(() => {
-    if (state.currentStep === StepTypes.POCKETSMITH_FETCH_SUCCESS &&
+    if (
+      state.currentStep === StepTypes.POCKETSMITH_FETCH_SUCCESS &&
       state.pocketsmithTransactions &&
       state.transactions &&
-      !state.successfullyMatchedTransactions) {
+      !state.successfullyMatchedTransactions
+    ) {
       matchTransactions();
     }
-  }, [state.currentStep, state.pocketsmithTransactions, state.transactions, state.successfullyMatchedTransactions, dispatch]);
+  }, [
+    state.currentStep,
+    state.pocketsmithTransactions,
+    state.transactions,
+    state.successfullyMatchedTransactions,
+    dispatch,
+  ]);
+
+  useEffect(() => {
+    if (
+      state.currentStep === StepTypes.TRANSACTION_MATCHING_SUCCESS &&
+      state.unmatchedTransactions &&
+      state.unmatchedTransactions.length > 0
+    ) {
+      dispatch(interactiveMatchingStart());
+    }
+  }, [state.currentStep, state.unmatchedTransactions, dispatch]);
 };
 
 export default useTransactionMatchingWatcher;

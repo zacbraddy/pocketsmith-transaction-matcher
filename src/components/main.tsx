@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { env } from '../env';
 import Spinner from 'ink-spinner';
 import { DateTime } from 'luxon';
+import InteractiveMatching from './interactive-matching';
 
 const getDisplayMessage = (state: TransactionMatcherState) => {
   switch (state.currentStep) {
@@ -30,6 +31,10 @@ const getDisplayMessage = (state: TransactionMatcherState) => {
       return `✅ Successfully matched ${state.successfullyMatchedTransactions?.length || 0} transactions, ${state.unmatchedTransactions?.length || 0} remain unmatched`;
     case StepTypes.TRANSACTION_MATCHING_ERROR:
       return `❌ Error matching transactions: ${state.transactionMatchingError}`;
+    case StepTypes.INTERACTIVE_MATCHING:
+      return `🔍 Interactive matching in progress - ${(state.currentUnmatchedIndex || 0) + 1}/${state.unmatchedTransactions?.length || 0} transactions`;
+    case StepTypes.INTERACTIVE_MATCHING_COMPLETE:
+      return `✅ Interactive matching complete! All transactions processed`;
     default:
       return 'PocketSmith Transaction Matcher is starting up...';
   }
@@ -42,17 +47,35 @@ const Main = () => {
   useEffect(() => {
     const newMessage = getDisplayMessage(state);
     setMessageBuffer(prevBuffer => {
-      if (prevBuffer.length === 0 || prevBuffer[prevBuffer.length - 1] !== newMessage) {
+      if (
+        prevBuffer.length === 0 ||
+        prevBuffer[prevBuffer.length - 1] !== newMessage
+      ) {
         return [...prevBuffer, newMessage];
       }
       return prevBuffer;
     });
-  }, [state.currentStep, state.csvProcessingError, state.csvFiles, state.totalTransactions, state.pocketsmithFetchError, state.pocketsmithTransactions, state.pocketsmithFetchDateRange, state.successfullyMatchedTransactions, state.unmatchedTransactions, state.transactionMatchingError]);
+  }, [
+    state.currentStep,
+    state.csvProcessingError,
+    state.csvFiles,
+    state.totalTransactions,
+    state.pocketsmithFetchError,
+    state.pocketsmithTransactions,
+    state.pocketsmithFetchDateRange,
+    state.successfullyMatchedTransactions,
+    state.unmatchedTransactions,
+    state.transactionMatchingError,
+  ]);
 
   return (
     <Box flexDirection="column">
       <Text color="green">📊 PocketSmith Transaction Matcher</Text>
-      <Text color="grey">Environment: {env.nodeEnv} | API: {env.pocketsmithBaseUrl.replace('https://', '')} | Threshold: {env.matchingThreshold}</Text>
+      <Text color="grey">
+        Environment: {env.nodeEnv} | API:{' '}
+        {env.pocketsmithBaseUrl.replace('https://', '')} | Days Tolerance:{' '}
+        {env.daysTolerance}
+      </Text>
 
       <Box flexDirection="column" marginTop={1}>
         {messageBuffer.map((message, index) => {
@@ -60,19 +83,23 @@ const Main = () => {
           const isError = message.includes('❌');
           const isSuccess = message.includes('✅');
 
-          let color = "blue";
-          if (isError) color = "red";
-          else if (isSuccess) color = "green";
-          else if (!isLatest) color = "gray";
+          let color = 'blue';
+          if (isError) color = 'red';
+          else if (isSuccess) color = 'green';
+          else if (!isLatest) color = 'gray';
 
           return (
             <Box key={index} flexDirection="row">
               <Text color={color}>{message}</Text>
-              {isLatest && (state.currentStep === StepTypes.IS_PROCESSING_CSV || state.currentStep === StepTypes.FETCHING_POCKETSMITH_TRANSACTIONS || state.currentStep === StepTypes.MATCHING_TRANSACTIONS) && (
-                <Box marginLeft={1}>
-                  <Spinner type="fistBump" />
-                </Box>
-              )}
+              {isLatest &&
+                (state.currentStep === StepTypes.IS_PROCESSING_CSV ||
+                  state.currentStep ===
+                  StepTypes.FETCHING_POCKETSMITH_TRANSACTIONS ||
+                  state.currentStep === StepTypes.MATCHING_TRANSACTIONS) && (
+                  <Box marginLeft={1}>
+                    <Spinner type="fistBump" />
+                  </Box>
+                )}
             </Box>
           );
         })}
@@ -89,41 +116,68 @@ const Main = () => {
         </Box>
       )}
 
-      {state.pocketsmithTransactions && state.pocketsmithTransactions.length > 0 && (
-        <Box flexDirection="column" marginTop={1}>
-          <Text color="cyan">💳 PocketSmith Transactions Fetched:</Text>
-          <Text color="white">
-            • {state.pocketsmithTransactions.length} transactions from {DateTime.fromISO(state.pocketsmithFetchDateRange?.startDate || '').toFormat('dd/MM/yyyy')} to {DateTime.fromISO(state.pocketsmithFetchDateRange?.endDate || '').toFormat('dd/MM/yyyy')}
-          </Text>
-        </Box>
-      )}
-
-      {state.successfullyMatchedTransactions && state.successfullyMatchedTransactions.length > 0 && (
-        <Box flexDirection="column" marginTop={1}>
-          <Text color="cyan">🔗 Successfully Matched Transactions:</Text>
-          {state.successfullyMatchedTransactions.slice(0, 5).map((transaction, index) => (
-            <Text key={index} color="white">
-              • £{transaction.Amount.toFixed(2)} - {transaction.Payee} - {transaction.Date.toFormat('dd/MM/yyyy')} (PS: {transaction.pocketsmithTransactionId})
+      {state.pocketsmithTransactions &&
+        state.pocketsmithTransactions.length > 0 && (
+          <Box flexDirection="column" marginTop={1}>
+            <Text color="cyan">💳 PocketSmith Transactions Fetched:</Text>
+            <Text color="white">
+              • {state.pocketsmithTransactions.length} transactions from{' '}
+              {DateTime.fromISO(
+                state.pocketsmithFetchDateRange?.startDate || ''
+              ).toFormat('dd/MM/yyyy')}{' '}
+              to{' '}
+              {DateTime.fromISO(
+                state.pocketsmithFetchDateRange?.endDate || ''
+              ).toFormat('dd/MM/yyyy')}
             </Text>
-          ))}
-          {state.successfullyMatchedTransactions.length > 5 && (
-            <Text color="gray">... and {state.successfullyMatchedTransactions.length - 5} more</Text>
-          )}
-        </Box>
-      )}
+          </Box>
+        )}
 
-      {state.unmatchedTransactions && state.unmatchedTransactions.length > 0 && (
-        <Box flexDirection="column" marginTop={1}>
-          <Text color="yellow">⚠️ Unmatched PocketSmith Transactions:</Text>
-          {state.unmatchedTransactions.slice(0, 5).map((transaction, index) => (
-            <Text key={index} color="white">
-              • £{transaction.Amount.toFixed(2)} - {transaction.Payee} - {transaction.Date.toFormat('dd/MM/yyyy')} (PS: {transaction.pocketsmithTransactionId})
-            </Text>
-          ))}
-          {state.unmatchedTransactions.length > 5 && (
-            <Text color="gray">... and {state.unmatchedTransactions.length - 5} more</Text>
-          )}
-        </Box>
+      {state.successfullyMatchedTransactions &&
+        state.successfullyMatchedTransactions.length > 0 && (
+          <Box flexDirection="column" marginTop={1}>
+            <Text color="cyan">🔗 Successfully Matched Transactions:</Text>
+            {state.successfullyMatchedTransactions
+              .slice(0, 5)
+              .map((transaction, index) => (
+                <Text key={index} color="white">
+                  • £{transaction.Amount.toFixed(2)} - {transaction.Payee} -{' '}
+                  {transaction.Date.toFormat('dd/MM/yyyy')} (PS:{' '}
+                  {transaction.pocketsmithTransactionId})
+                </Text>
+              ))}
+            {state.successfullyMatchedTransactions.length > 5 && (
+              <Text color="gray">
+                ... and {state.successfullyMatchedTransactions.length - 5} more
+              </Text>
+            )}
+          </Box>
+        )}
+
+      {state.unmatchedTransactions &&
+        state.unmatchedTransactions.length > 0 &&
+        state.currentStep !== StepTypes.INTERACTIVE_MATCHING && (
+          <Box flexDirection="column" marginTop={1}>
+            <Text color="yellow">⚠️ Unmatched PocketSmith Transactions:</Text>
+            {state.unmatchedTransactions
+              .slice(0, 5)
+              .map((transaction, index) => (
+                <Text key={index} color="white">
+                  • £{transaction.Amount.toFixed(2)} - {transaction.Payee} -{' '}
+                  {transaction.Date.toFormat('dd/MM/yyyy')} (PS:{' '}
+                  {transaction.pocketsmithTransactionId})
+                </Text>
+              ))}
+            {state.unmatchedTransactions.length > 5 && (
+              <Text color="gray">
+                ... and {state.unmatchedTransactions.length - 5} more
+              </Text>
+            )}
+          </Box>
+        )}
+
+      {state.currentStep === StepTypes.INTERACTIVE_MATCHING && (
+        <InteractiveMatching state={state} dispatch={dispatch} />
       )}
     </Box>
   );

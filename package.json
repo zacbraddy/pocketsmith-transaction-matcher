@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "nodemon --exec tsx src/index.tsx",
+    "dev": "node --watch --import tsx/esm src/index.tsx",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean && npm run lint:check && npm run format:check",
     "lint": "eslint src --ext .ts --ext .tsx --fix",
@@ -39,9 +39,7 @@
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.3",
-    "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
-    "ts-node": "^10.9.2",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   },
@@ -49,6 +47,7 @@
     "dotenv": "^17.2.1",
     "ink": "^6.1.0",
     "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
     "just-flatten-it": "^5.2.0",
     "just-unique": "^4.2.0",
     "luxon": "^3.7.1",

@@ -1,4 +1,4 @@
-import { DateTime } from "luxon";
+import { DateTime } from 'luxon';
 
 export enum StepTypes {
   INITIALISING = 'INITIALISING',
@@ -12,28 +12,30 @@ export enum StepTypes {
   MATCHING_TRANSACTIONS = 'MATCHING_TRANSACTIONS',
   TRANSACTION_MATCHING_SUCCESS = 'TRANSACTION_MATCHING_SUCCESS',
   TRANSACTION_MATCHING_ERROR = 'TRANSACTION_MATCHING_ERROR',
+  INTERACTIVE_MATCHING = 'INTERACTIVE_MATCHING',
+  INTERACTIVE_MATCHING_COMPLETE = 'INTERACTIVE_MATCHING_COMPLETE',
 }
 
 // PayPal CSV transaction structure
 export interface PayPalTransaction {
   Date: string;
   Time: string;
-  "Time Zone": string;
+  'Time Zone': string;
   Description: string;
   Currency: string;
   Gross: string;
   Fee: string;
   Net: string;
   Balance: string;
-  "Transaction ID": string;
-  "From Email Address": string;
+  'Transaction ID': string;
+  'From Email Address': string;
   Name: string;
-  "Bank Name": string;
-  "Bank account": string;
-  "Postage and Packaging Amount": string;
+  'Bank Name': string;
+  'Bank account': string;
+  'Postage and Packaging Amount': string;
   VAT: string;
-  "Invoice ID": string;
-  "Reference Txn ID": string;
+  'Invoice ID': string;
+  'Reference Txn ID': string;
 }
 
 export interface StandardisedTransaction {
@@ -46,6 +48,7 @@ export interface StandardisedTransaction {
   isForeignCurrency?: boolean;
   pocketsmithTransactionId?: number;
   paypalTransactionId?: string;
+  manuallyMatched?: boolean;
 }
 
 export interface PocketSmithTransaction {
@@ -76,4 +79,9 @@ export interface TransactionMatcherState {
   successfullyMatchedTransactions?: StandardisedTransaction[];
   unmatchedTransactions?: StandardisedTransaction[];
   transactionMatchingError?: string;
+  currentUnmatchedIndex?: number;
+  waitingForUserInput?: boolean;
+  userFoundMatch?: boolean;
+  paypalTransactionNumber?: string;
+  payeeName?: string;
 }

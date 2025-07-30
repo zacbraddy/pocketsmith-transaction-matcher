@@ -45,7 +45,9 @@ function getEnvNumber(key: string, defaultValue: number): number {
   }
   const parsed = Number(value);
   if (isNaN(parsed)) {
-    throw new Error(`Environment variable ${key} must be a valid number, got: ${value}`);
+    throw new Error(
+      `Environment variable ${key} must be a valid number, got: ${value}`
+    );
   }
   return parsed;
 }
@@ -67,8 +69,14 @@ function getEnvBoolean(key: string, defaultValue: boolean): boolean {
 export function loadEnvConfig(): EnvConfig {
   return {
     // PocketSmith API Configuration
-    pocketsmithApiKey: getEnvVar('POCKETSMITH_API_KEY', 'development_placeholder_key'),
-    pocketsmithBaseUrl: getEnvVar('POCKETSMITH_BASE_URL', 'https://api.pocketsmith.com/v2'),
+    pocketsmithApiKey: getEnvVar(
+      'POCKETSMITH_API_KEY',
+      'development_placeholder_key'
+    ),
+    pocketsmithBaseUrl: getEnvVar(
+      'POCKETSMITH_BASE_URL',
+      'https://api.pocketsmith.com/v2'
+    ),
 
     // UniRate API Configuration
     unirateApiKey: getEnvVar('UNIRATE_API_KEY'),
@@ -79,23 +87,15 @@ export function loadEnvConfig(): EnvConfig {
 
     // File Processing
     inputCsvPath: getEnvVar('INPUT_CSV_PATH', './data/input'),
-    outputPath: getEnvVar('OUTPUT_PATH', './data/output'),
-    backupPath: getEnvVar('BACKUP_PATH', './data/backup'),
 
     // Matching Configuration
-    matchingThreshold: getEnvNumber('MATCHING_THRESHOLD', 0.8),
-    autoApproveMatches: getEnvBoolean('AUTO_APPROVE_MATCHES', false),
-    batchSize: getEnvNumber('BATCH_SIZE', 100),
     daysTolerance: getEnvNumber('DAYS_TOLERANCE', 2),
     dateRangeBufferDays: getEnvNumber('DATE_RANGE_BUFFER_DAYS', 5),
     amountToleranceExact: getEnvNumber('AMOUNT_TOLERANCE_EXACT', 0.01),
-    amountToleranceForeignPercent: getEnvNumber('AMOUNT_TOLERANCE_FOREIGN_PERCENT', 0.2),
-
-    // Optional: Database
-    databaseUrl: process.env.DATABASE_URL,
-
-    // Optional: Rate limiting for API calls
-    apiRateLimitMs: getEnvNumber('API_RATE_LIMIT_MS', 1000),
+    amountToleranceForeignPercent: getEnvNumber(
+      'AMOUNT_TOLERANCE_FOREIGN_PERCENT',
+      0.2
+    ),
   };
 }
 
@@ -111,5 +111,5 @@ function getEnv(): EnvConfig {
 export const env = new Proxy({} as EnvConfig, {
   get(target, prop) {
     return getEnv()[prop as keyof EnvConfig];
-  }
+  },
 });
