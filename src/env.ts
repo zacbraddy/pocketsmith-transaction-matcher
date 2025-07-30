@@ -16,19 +16,12 @@ export interface EnvConfig {
 
   // File Processing
   inputCsvPath: string;
-  outputPath: string;
-  backupPath: string;
 
   // Matching Configuration
-  matchingThreshold: number;
-  autoApproveMatches: boolean;
-  batchSize: number;
-
-  // Optional: Database
-  databaseUrl?: string;
-
-  // Optional: Rate limiting for API calls
-  apiRateLimitMs: number;
+  daysTolerance: number;
+  dateRangeBufferDays: number;
+  amountToleranceExact: number;
+  amountToleranceForeignPercent: number;
 }
 
 /**
@@ -93,6 +86,10 @@ export function loadEnvConfig(): EnvConfig {
     matchingThreshold: getEnvNumber('MATCHING_THRESHOLD', 0.8),
     autoApproveMatches: getEnvBoolean('AUTO_APPROVE_MATCHES', false),
     batchSize: getEnvNumber('BATCH_SIZE', 100),
+    daysTolerance: getEnvNumber('DAYS_TOLERANCE', 2),
+    dateRangeBufferDays: getEnvNumber('DATE_RANGE_BUFFER_DAYS', 5),
+    amountToleranceExact: getEnvNumber('AMOUNT_TOLERANCE_EXACT', 0.01),
+    amountToleranceForeignPercent: getEnvNumber('AMOUNT_TOLERANCE_FOREIGN_PERCENT', 0.2),
 
     // Optional: Database
     databaseUrl: process.env.DATABASE_URL,

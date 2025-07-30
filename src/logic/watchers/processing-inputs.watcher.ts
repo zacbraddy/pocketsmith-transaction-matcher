@@ -63,13 +63,21 @@ const useProcessingInputsWatcher = (state: TransactionMatcherState, dispatch: Di
             throw new Error(`Rate not found for ${currency}`);
           }
 
+          let Note = `Converted from Paypal on ${runDate.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)} from the file ${transaction.OriginalCSV}\nOriginal Paypal Transaction ID: ${transaction["Transaction ID"]}\nOriginal Paypal Date: ${DateTime.fromISO(`${transaction.Date} ${transaction.Time}`, { zone: transaction["Time Zone"] }).setZone("Europe/London").toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}\nOriginal Paypal Amount: ${transaction.Gross} ${transaction.Currency}`;
+
+          if (transaction.Currency !== "GBP") {
+            Note += `\nConverted from ${transaction.Currency} to GBP at ${rate} on ${runDate.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}`;
+          }
+
           return {
             Date: DateTime.fromFormat(`${transaction.Date} ${transaction.Time}`, "dd/MM/yyyy HH:mm:ss", { zone: transaction["Time Zone"] }).setZone("Europe/London"),
             Payee: transaction.Name,
-            Note: `Converted from Paypal on ${runDate.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}\nOriginal Paypal Transaction ID: ${transaction["Transaction ID"]}\nOriginal Paypal Date: ${DateTime.fromISO(`${transaction.Date} ${transaction.Time}`, { zone: transaction["Time Zone"] }).setZone("Europe/London").toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}\nOriginal Paypal Amount: ${transaction.Gross} ${transaction.Currency}`,
-            Amount: Number(transaction.Gross) * rate,
+            Note,
+            Amount: Number(transaction.Gross) / rate,
             Labels: ["Paypal Automated Conversion"],
-            OriginalCSV: transaction.OriginalCSV
+            isForeignCurrency: transaction.Currency !== "GBP",
+            OriginalCSV: transaction.OriginalCSV,
+            paypalTransactionId: transaction["Transaction ID"]
           };
         });
       } catch (error) {

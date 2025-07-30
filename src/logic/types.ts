@@ -9,6 +9,9 @@ export enum StepTypes {
   FETCHING_POCKETSMITH_TRANSACTIONS = 'FETCHING_POCKETSMITH_TRANSACTIONS',
   POCKETSMITH_FETCH_SUCCESS = 'POCKETSMITH_FETCH_SUCCESS',
   POCKETSMITH_FETCH_ERROR = 'POCKETSMITH_FETCH_ERROR',
+  MATCHING_TRANSACTIONS = 'MATCHING_TRANSACTIONS',
+  TRANSACTION_MATCHING_SUCCESS = 'TRANSACTION_MATCHING_SUCCESS',
+  TRANSACTION_MATCHING_ERROR = 'TRANSACTION_MATCHING_ERROR',
 }
 
 // PayPal CSV transaction structure
@@ -40,6 +43,9 @@ export interface StandardisedTransaction {
   Payee: string;
   Labels: string[];
   OriginalCSV?: string;
+  isForeignCurrency?: boolean;
+  pocketsmithTransactionId?: number;
+  paypalTransactionId?: string;
 }
 
 export interface PocketSmithTransaction {
@@ -67,4 +73,7 @@ export interface TransactionMatcherState {
     startDate: string;
     endDate: string;
   };
+  successfullyMatchedTransactions?: StandardisedTransaction[];
+  unmatchedTransactions?: StandardisedTransaction[];
+  transactionMatchingError?: string;
 }

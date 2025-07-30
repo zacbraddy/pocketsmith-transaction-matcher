@@ -1,5 +1,5 @@
 import { Action, ActionTypes } from "./action.types";
-import { StandardisedTransaction } from "../types";
+import { PocketSmithTransaction } from "../types";
 import { DateTime } from "luxon";
 
 export const pocketsmithFetchStart = (dateRange: { startDate?: DateTime; endDate?: DateTime }): Action => ({
@@ -7,7 +7,7 @@ export const pocketsmithFetchStart = (dateRange: { startDate?: DateTime; endDate
   payload: dateRange,
 });
 
-export const pocketsmithFetchSuccess = (transactions: StandardisedTransaction[]): Action => ({
+export const pocketsmithFetchSuccess = (transactions: PocketSmithTransaction[]): Action => ({
   type: ActionTypes.POCKETSMITH_FETCH_SUCCESS,
   payload: transactions,
 });

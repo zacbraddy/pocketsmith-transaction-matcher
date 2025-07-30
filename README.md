@@ -29,14 +29,13 @@ This application uses environment variables for configuration. Follow these step
 |----------|-------------|---------|----------|
 | `POCKETSMITH_API_KEY` | Your PocketSmith API key | - | ✅ |
 | `POCKETSMITH_BASE_URL` | PocketSmith API base URL | `https://api.pocketsmith.com/v2` | ❌ |
+| `UNIRATE_API_KEY` | UniRate API key | - | ✅ |
 | `NODE_ENV` | Application environment | `development` | ❌ |
 | `LOG_LEVEL` | Logging level | `info` | ❌ |
-| `INPUT_CSV_PATH` | Path to input CSV files | `./data/input` | ❌ |
-| `OUTPUT_PATH` | Path for output files | `./data/output` | ❌ |
-| `BACKUP_PATH` | Path for backup files | `./data/backup` | ❌ |
-| `MATCHING_THRESHOLD` | Transaction matching threshold (0-1) | `0.8` | ❌ |
-| `AUTO_APPROVE_MATCHES` | Auto-approve matches above threshold | `false` | ❌ |
-| `BATCH_SIZE` | Number of transactions to process at once | `100` | ❌ |
+| `DAYS_TOLERANCE` | Days tolerance for transaction date matching | `2` | ❌ |
+| `DATE_RANGE_BUFFER_DAYS` | Buffer days for PocketSmith fetch date range | `5` | ❌ |
+| `AMOUNT_TOLERANCE_EXACT` | Amount tolerance for same-currency matching | `0.001` | ❌ |
+| `AMOUNT_TOLERANCE_FOREIGN_PERCENT` | Percentage tolerance for foreign currency matching | `0.1` | ❌ |
 | `API_RATE_LIMIT_MS` | Delay between API calls (milliseconds) | `1000` | ❌ |
 
 ## Development

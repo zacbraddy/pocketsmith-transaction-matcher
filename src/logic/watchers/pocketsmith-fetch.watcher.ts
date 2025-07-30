@@ -1,6 +1,6 @@
 import { Dispatch, useEffect } from "react";
 import { Action } from "../actions/action.types";
-import { StepTypes, TransactionMatcherState, PocketSmithTransaction, StandardisedTransaction } from "../types";
+import { StepTypes, TransactionMatcherState, PocketSmithTransaction } from "../types";
 import { pocketsmithFetchStart, pocketsmithFetchSuccess, pocketsmithFetchError } from "../actions/pocketsmith-fetch.actions";
 import { DateTime } from "luxon";
 import { createPocketSmithClient } from "pocketsmith-ts";
@@ -17,8 +17,8 @@ const usePocketSmithFetchWatcher = (state: TransactionMatcherState, dispatch: Di
     const earliestDate = DateTime.min(...transactionDates);
     const latestDate = DateTime.max(...transactionDates);
 
-    const startDate = earliestDate?.minus({ day: 5 });
-    const endDate = latestDate?.plus({ day: 5 });
+    const startDate = earliestDate?.minus({ day: env.dateRangeBufferDays });
+    const endDate = latestDate?.plus({ day: env.dateRangeBufferDays });
     const today = DateTime.now();
 
     const finalEndDate = endDate && endDate > today ? today : endDate;
@@ -89,15 +89,7 @@ const usePocketSmithFetchWatcher = (state: TransactionMatcherState, dispatch: Di
         allTransactions.push(...mappedTransactions);
       }
 
-      const standardisedTransactions: StandardisedTransaction[] = allTransactions.map(transaction => ({
-        Date: DateTime.fromISO(transaction.date),
-        Note: transaction.memo,
-        Amount: transaction.amount,
-        Payee: transaction.payee,
-        Labels: transaction.labels || [],
-      }));
-
-      dispatch(pocketsmithFetchSuccess(standardisedTransactions));
+      dispatch(pocketsmithFetchSuccess(allTransactions));
     } catch (error) {
       dispatch(pocketsmithFetchError(`Error fetching PocketSmith transactions: ${error instanceof Error ? error.message : 'Unknown error'}`));
     }

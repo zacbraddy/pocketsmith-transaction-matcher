@@ -66,6 +66,32 @@ const transactionMatcherReducer = (state: TransactionMatcherState, action: Actio
         currentStep: StepTypes.POCKETSMITH_FETCH_ERROR,
         pocketsmithFetchError: action.payload as string
       };
+    case ActionTypes.TRANSACTION_MATCHING_START:
+      return {
+        ...state,
+        currentStep: StepTypes.MATCHING_TRANSACTIONS,
+        transactionMatchingError: undefined,
+        successfullyMatchedTransactions: undefined,
+        unmatchedTransactions: undefined
+      };
+    case ActionTypes.TRANSACTION_MATCHING_SUCCESS:
+      const matchingPayload = action.payload as {
+        successfullyMatchedTransactions: StandardisedTransaction[];
+        unmatchedTransactions: StandardisedTransaction[];
+      };
+      return {
+        ...state,
+        currentStep: StepTypes.TRANSACTION_MATCHING_SUCCESS,
+        successfullyMatchedTransactions: matchingPayload.successfullyMatchedTransactions,
+        unmatchedTransactions: matchingPayload.unmatchedTransactions,
+        transactionMatchingError: undefined
+      };
+    case ActionTypes.TRANSACTION_MATCHING_ERROR:
+      return {
+        ...state,
+        currentStep: StepTypes.TRANSACTION_MATCHING_ERROR,
+        transactionMatchingError: action.payload as string
+      };
     default:
       return state;
   }
