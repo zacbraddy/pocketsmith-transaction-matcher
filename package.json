@@ -1,0 +1,42 @@
+{
+  "name": "pocketsmith-transaction-matcher",
+  "version": "1.0.0",
+  "description": "Take CSVs from other platforms of transactions and match them to transactions in pocketsmith, then update their Payees to match the transactions so that pocketsmith can fix the categorisation via category rules.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean && npm run lint:check && npm run format:check",
+    "lint": "eslint src --ext .ts --fix",
+    "lint:check": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.{ts,js,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
+    "format:lint": "npm run format && npm run lint",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zacbraddy/pocketsmith-transaction-matcher.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zacbraddy/pocketsmith-transaction-matcher/issues"
+  },
+  "homepage": "https://github.com/zacbraddy/pocketsmith-transaction-matcher#readme",
+  "devDependencies": {
+    "@types/node": "^24.1.0",
+    "@typescript-eslint/eslint-plugin": "^8.38.0",
+    "@typescript-eslint/parser": "^8.38.0",
+    "eslint": "^9.32.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.3",
+    "nodemon": "^3.1.10",
+    "prettier": "^3.6.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
