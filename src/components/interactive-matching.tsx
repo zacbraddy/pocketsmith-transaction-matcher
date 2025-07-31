@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Text, Box, useInput } from 'ink';
 import { DateTime } from 'luxon';
-import { TransactionMatcherState } from '../logic/types';
+import { TransactionMatcherState, CSVType } from '../logic/types';
 import { Action } from '../logic/actions/action.types';
 import {
   userResponseFoundMatch,
   userResponseNoMatch,
   setManualMatchDetails,
+  setManualMultiMatchDetails,
   resolvePaypalIdConflict,
 } from '../logic/actions/transaction-matching.actions';
 import { Dispatch } from 'react';
@@ -23,14 +24,20 @@ const generatePayPalSearchUrl = (transactionDate: DateTime): string => {
   return `https://www.paypal.com/myaccount/activities/?start_date=${startDate}&end_date=${endDate}`;
 };
 
+const generateAmazonSearchUrl = (transactionDate: DateTime): string => {
+  const startDate = transactionDate.minus({ weeks: 2 }).toFormat('yyyy-MM-dd');
+  const endDate = transactionDate.plus({ weeks: 2 }).toFormat('yyyy-MM-dd');
+  return `https://www.amazon.co.uk/gp/css/order-history?startDate=${startDate}&endDate=${endDate}`;
+};
+
 const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
   state,
   dispatch,
 }) => {
   const [currentInput, setCurrentInput] = useState<
-    'waiting' | 'paypal-id' | 'payee-name' | 'conflict-resolution'
+    'waiting' | 'transaction-id' | 'payee-name' | 'conflict-resolution'
   >('waiting');
-  const [paypalId, setPaypalId] = useState('');
+  const [transactionId, setTransactionId] = useState('');
   const [payeeName, setPayeeName] = useState('');
 
   const currentTransaction =
@@ -39,10 +46,19 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
   const isConflictMode =
     state.waitingForConflictResolution && state.paypalIdConflict;
 
-  const paypalUrl = useMemo(() => {
+  const searchUrl = useMemo(() => {
     if (!currentTransaction) return '';
-    return generatePayPalSearchUrl(currentTransaction.Date);
+    return currentTransaction.csvType === CSVType.AMAZON
+      ? generateAmazonSearchUrl(currentTransaction.Date)
+      : generatePayPalSearchUrl(currentTransaction.Date);
   }, [currentTransaction]);
+
+  const isAmazonTransaction = currentTransaction?.csvType === CSVType.AMAZON;
+
+  const isShowingPocketSmithTransaction =
+    isAmazonTransaction &&
+    currentTransaction?.pocketsmithTransactionId &&
+    !currentTransaction?.amazonOrderId;
 
   const progress = useMemo(() => {
     if (isConflictMode) return 'Resolving conflict';
@@ -69,7 +85,7 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
       }
     } else if (currentInput === 'waiting' && !isConflictMode) {
       if (input.toLowerCase() === 'y' || input.toLowerCase() === 'yes') {
-        setCurrentInput('paypal-id');
+        setCurrentInput('transaction-id');
         dispatch(userResponseFoundMatch());
       } else if (input.toLowerCase() === 'n' || input.toLowerCase() === 'no') {
         dispatch(userResponseNoMatch());
@@ -87,21 +103,50 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
     return null;
   }
 
-  const handlePaypalIdSubmit = (value: string) => {
-    setPaypalId(value);
-    setCurrentInput('payee-name');
+  const handleTransactionIdSubmit = (value: string) => {
+    setTransactionId(value);
+
+    if (isAmazonTransaction) {
+      const orderIds = value
+        .split(',')
+        .map(id => id.trim())
+        .filter(Boolean);
+
+      if (orderIds.length > 1) {
+        dispatch(
+          setManualMultiMatchDetails({
+            transactionIds: orderIds,
+            payeeName: '',
+          })
+        );
+      } else {
+        dispatch(
+          setManualMatchDetails({
+            transactionId: value,
+            payeeName: '',
+          })
+        );
+      }
+
+      setCurrentInput('waiting');
+      setTransactionId('');
+    } else {
+      setCurrentInput('payee-name');
+    }
   };
 
   const handlePayeeNameSubmit = (value: string) => {
     setPayeeName(value);
+
     dispatch(
       setManualMatchDetails({
-        paypalTransactionNumber: paypalId,
+        transactionId: transactionId,
         payeeName: value,
       })
     );
+
     setCurrentInput('waiting');
-    setPaypalId('');
+    setTransactionId('');
     setPayeeName('');
   };
 
@@ -169,43 +214,82 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
           borderStyle="round"
           borderColor="yellow"
         >
-          <Text color="yellow">📄 PocketSmith Transaction Details:</Text>
+          <Text color="yellow">
+            📄{' '}
+            {isShowingPocketSmithTransaction
+              ? 'Bank Transaction'
+              : isAmazonTransaction
+                ? 'Amazon Order'
+                : 'PayPal Transaction'}{' '}
+            Details:
+          </Text>
           <Text color="white">
             • Amount: £{currentTransaction.Amount.toFixed(2)}
           </Text>
           <Text color="white">• Date: {formattedDate}</Text>
           <Text color="white">• Payee: {currentTransaction.Payee}</Text>
           <Text color="white">• Note: {currentTransaction.Note}</Text>
+          {isAmazonTransaction && currentTransaction.amazonOrderId && (
+            <Text color="white">
+              • Order ID: {currentTransaction.amazonOrderId}
+            </Text>
+          )}
+          {isAmazonTransaction && currentTransaction.amazonItems && (
+            <Text color="white">
+              • Items:{' '}
+              {currentTransaction.amazonItems.split(';').slice(0, 2).join('; ')}
+              {currentTransaction.amazonItems.split(';').length > 2
+                ? '...'
+                : ''}
+            </Text>
+          )}
           <Text color="white">
-            • ID: {currentTransaction.pocketsmithTransactionId}
+            • PocketSmith ID: {currentTransaction.pocketsmithTransactionId}
           </Text>
         </Box>
       )}
 
       <Box flexDirection="column" marginTop={1}>
-        <Text color="blue">🔗 PayPal Search Link:</Text>
-        <Text color="cyan">{paypalUrl}</Text>
+        <Text color="blue">
+          🔗 {isAmazonTransaction ? 'Amazon Order History' : 'PayPal Search'}{' '}
+          Link:
+        </Text>
+        <Text color="cyan">{searchUrl}</Text>
         <Text color="gray">
-          (This link shows PayPal transactions 2 weeks either side of the
-          transaction date)
+          (This link shows{' '}
+          {isAmazonTransaction ? 'Amazon orders' : 'PayPal transactions'} 2
+          weeks either side of the transaction date)
         </Text>
       </Box>
 
       {currentInput === 'waiting' && (
         <Box flexDirection="column" marginTop={1}>
           <Text color="green">
-            Did you find a matching PayPal transaction? (y/n)
+            Did you find a matching{' '}
+            {isAmazonTransaction ? 'Amazon order' : 'PayPal transaction'}? (y/n)
           </Text>
         </Box>
       )}
 
-      {currentInput === 'paypal-id' && (
+      {currentInput === 'transaction-id' && (
         <Box flexDirection="column" marginTop={1}>
-          <Text color="green">Enter the PayPal transaction ID:</Text>
+          <Text color="green">
+            Enter the{' '}
+            {isAmazonTransaction
+              ? 'Amazon order ID(s)'
+              : 'PayPal transaction ID'}
+            :
+          </Text>
+          {isAmazonTransaction && (
+            <Text color="gray">
+              (For multiple orders, separate with commas: 123-456-789,
+              987-654-321)
+            </Text>
+          )}
           <TextInput
-            value={paypalId}
-            onChange={setPaypalId}
-            onSubmit={handlePaypalIdSubmit}
+            value={transactionId}
+            onChange={setTransactionId}
+            onSubmit={handleTransactionIdSubmit}
             focus={true}
           />
         </Box>

@@ -8,6 +8,7 @@ import usePocketSmithFetchWatcher from './watchers/pocketsmith-fetch.watcher';
 import useTransactionMatchingWatcher from './watchers/transaction-matching.watcher';
 import useInteractiveMatchingWatcher from './watchers/interactive-matching.watcher';
 import useMatchConfirmationWatcher from './watchers/match-confirmation.watcher';
+import useAccountSelectionWatcher from './watchers/account-selection.watcher';
 
 const useTransactionMatcher = () => {
   const [state, dispatch] = useReducer(transactionMatcherReducer, {
@@ -20,6 +21,7 @@ const useTransactionMatcher = () => {
 
   useInitialisingWatcher(state, dispatch);
   useProcessingInputsWatcher(state, dispatch);
+  useAccountSelectionWatcher(state, dispatch);
   usePocketSmithFetchWatcher(state, dispatch);
   useTransactionMatchingWatcher(state, dispatch);
   useInteractiveMatchingWatcher(state, dispatch);

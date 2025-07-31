@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Text, Box } from 'ink';
 import {
   StandardisedTransaction,
   TransactionMatcherState,
+  CSVType,
 } from '../logic/types';
 
 interface FinalStatisticsProps {
@@ -12,6 +13,42 @@ interface FinalStatisticsProps {
 const FinalStatistics: React.FC<FinalStatisticsProps> = ({ state }) => {
   const stats = state.finalStats;
   const unmatchedTransactions = state.unmatchedTransactions;
+
+  const transactionBreakdown = useMemo(() => {
+    const allTransactions = [
+      ...(state.confirmedMatches || []),
+      ...(state.rejectedMatches || []),
+      ...(unmatchedTransactions || []),
+    ];
+
+    const amazonTransactions = allTransactions.filter(
+      t => t.csvType === CSVType.AMAZON
+    );
+    const paypalTransactions = allTransactions.filter(
+      t => t.csvType === CSVType.PAYPAL
+    );
+    const confirmedAmazon = (state.confirmedMatches || []).filter(
+      t => t.csvType === CSVType.AMAZON
+    );
+    const confirmedPayPal = (state.confirmedMatches || []).filter(
+      t => t.csvType === CSVType.PAYPAL
+    );
+
+    return {
+      amazonTransactions,
+      paypalTransactions,
+      confirmedAmazon,
+      confirmedPayPal,
+      totalAmazonValue: amazonTransactions.reduce(
+        (sum, t) => sum + Math.abs(t.Amount),
+        0
+      ),
+      totalPayPalValue: paypalTransactions.reduce(
+        (sum, t) => sum + Math.abs(t.Amount),
+        0
+      ),
+    };
+  }, [state.confirmedMatches, state.rejectedMatches, unmatchedTransactions]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -51,6 +88,52 @@ const FinalStatistics: React.FC<FinalStatisticsProps> = ({ state }) => {
         </Text>
       </Box>
 
+      {(transactionBreakdown.amazonTransactions.length > 0 ||
+        transactionBreakdown.paypalTransactions.length > 0) && (
+        <Box flexDirection="column" marginTop={1}>
+          <Text color="cyan" bold>
+            📈 Breakdown by Source:
+          </Text>
+          {transactionBreakdown.amazonTransactions.length > 0 && (
+            <Box flexDirection="column" marginLeft={2}>
+              <Text color="orange" bold>
+                📦 Amazon Orders:
+              </Text>
+              <Text color="white">
+                • Total orders: {transactionBreakdown.amazonTransactions.length}
+              </Text>
+              <Text color="green">
+                • Successfully updated:{' '}
+                {transactionBreakdown.confirmedAmazon.length}
+              </Text>
+              <Text color="white">
+                • Total value: £
+                {transactionBreakdown.totalAmazonValue.toFixed(2)}
+              </Text>
+            </Box>
+          )}
+          {transactionBreakdown.paypalTransactions.length > 0 && (
+            <Box flexDirection="column" marginLeft={2}>
+              <Text color="blue" bold>
+                📄 PayPal Transactions:
+              </Text>
+              <Text color="white">
+                • Total transactions:{' '}
+                {transactionBreakdown.paypalTransactions.length}
+              </Text>
+              <Text color="green">
+                • Successfully updated:{' '}
+                {transactionBreakdown.confirmedPayPal.length}
+              </Text>
+              <Text color="white">
+                • Total value: £
+                {transactionBreakdown.totalPayPalValue.toFixed(2)}
+              </Text>
+            </Box>
+          )}
+        </Box>
+      )}
+
       {unmatchedTransactions && unmatchedTransactions.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
           <Text color="red" bold>
@@ -67,9 +150,32 @@ const FinalStatistics: React.FC<FinalStatisticsProps> = ({ state }) => {
                 <Text color="white">
                   {index + 1}. £{transaction.Amount.toFixed(2)} -{' '}
                   {transaction.Date.toFormat('dd/MM/yyyy')} -{' '}
-                  {transaction.Payee}
+                  {transaction.Payee}{' '}
+                  <Text
+                    color={
+                      transaction.csvType === CSVType.AMAZON ? 'orange' : 'blue'
+                    }
+                  >
+                    (
+                    {transaction.csvType === CSVType.AMAZON
+                      ? '📦 Amazon'
+                      : '📄 PayPal'}
+                    )
+                  </Text>
                 </Text>
                 <Text color="gray">Note: {transaction.Note}</Text>
+                {transaction.csvType === CSVType.AMAZON &&
+                  transaction.amazonOrderId && (
+                    <Text color="gray">
+                      Order ID: {transaction.amazonOrderId}
+                    </Text>
+                  )}
+                {transaction.csvType === CSVType.PAYPAL &&
+                  transaction.paypalTransactionId && (
+                    <Text color="gray">
+                      PayPal ID: {transaction.paypalTransactionId}
+                    </Text>
+                  )}
                 {transaction.pocketsmithTransactionId && (
                   <Text color="gray">
                     PocketSmith ID: {transaction.pocketsmithTransactionId}

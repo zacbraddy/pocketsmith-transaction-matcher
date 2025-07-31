@@ -6,6 +6,7 @@ export enum StepTypes {
   IS_PROCESSING_CSV = 'IS_PROCESSING_CSV',
   CSV_PROCESSING_SUCCESS = 'CSV_PROCESSING_SUCCESS',
   CSV_PROCESSING_ERROR = 'CSV_PROCESSING_ERROR',
+  WAITING_FOR_ACCOUNT_SELECTION = 'WAITING_FOR_ACCOUNT_SELECTION',
   FETCHING_POCKETSMITH_TRANSACTIONS = 'FETCHING_POCKETSMITH_TRANSACTIONS',
   POCKETSMITH_FETCH_SUCCESS = 'POCKETSMITH_FETCH_SUCCESS',
   POCKETSMITH_FETCH_ERROR = 'POCKETSMITH_FETCH_ERROR',
@@ -40,18 +41,45 @@ export interface PayPalTransaction {
   'Reference Txn ID': string;
 }
 
+export interface AmazonTransaction {
+  'order id': string;
+  'order url': string;
+  items: string;
+  to: string;
+  date: string;
+  total: string;
+  shipping?: string;
+  shipping_refund?: string;
+  gift?: string;
+  VAT?: string;
+  refund?: string;
+  payments: string;
+  invoice?: string;
+}
+
+export enum CSVType {
+  PAYPAL = 'PAYPAL',
+  AMAZON = 'AMAZON',
+  UNKNOWN = 'UNKNOWN',
+}
+
 export interface StandardisedTransaction {
   Date: DateTime;
   Note: string;
   Amount: number;
-  Payee: string;
+  Payee?: string;
   Labels: string[];
   OriginalCSV?: string;
+  csvType?: CSVType;
   isForeignCurrency?: boolean;
   pocketsmithTransactionId?: number;
   paypalTransactionId?: string;
+  amazonOrderId?: string;
+  amazonItems?: string;
+  amazonOrderUrl?: string;
   manuallyMatched?: boolean;
   skippedDuringMatching?: boolean;
+  amazonSplitPayments?: number[];
 }
 
 export interface PocketSmithTransaction {
@@ -62,8 +90,21 @@ export interface PocketSmithTransaction {
   memo: string;
   labels?: string[];
   account_id: number;
-  category_id?: number;
+  category_id: number;
   needs_review: boolean;
+  transaction_account: {
+    id: number;
+  };
+  category: {
+    id: number;
+  };
+}
+
+export interface TransactionAccount {
+  id: number;
+  name: string;
+  type: string;
+  currency_code: string;
 }
 
 export interface TransactionMatcherState {
@@ -85,7 +126,8 @@ export interface TransactionMatcherState {
   currentUnmatchedIndex?: number;
   waitingForUserInput?: boolean;
   userFoundMatch?: boolean;
-  paypalTransactionNumber?: string;
+  manualTransactionId?: string;
+  manualTransactionIds?: string[];
   payeeName?: string;
   currentMatchIndex?: number;
   confirmedMatches?: StandardisedTransaction[];
@@ -97,6 +139,11 @@ export interface TransactionMatcherState {
     currentTransaction: StandardisedTransaction;
   };
   waitingForConflictResolution?: boolean;
+  csvType?: CSVType;
+  selectedTransactionAccountId?: number;
+  availableTransactionAccounts?: TransactionAccount[];
+  waitingForAccountSelection?: boolean;
+  errorMessage?: string;
   finalStats?: {
     totalPocketsmithTransactions: number;
     automaticallyMatched: number;

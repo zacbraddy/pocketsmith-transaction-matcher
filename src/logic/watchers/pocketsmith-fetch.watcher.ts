@@ -1,6 +1,6 @@
 import { Dispatch, useCallback, useEffect } from 'react';
 import { Action } from '../actions/action.types';
-import { StepTypes, TransactionMatcherState } from '../types';
+import { StepTypes, TransactionMatcherState, CSVType } from '../types';
 import {
   pocketsmithFetchStart,
   pocketsmithFetchSuccess,
@@ -40,17 +40,51 @@ const usePocketSmithFetchWatcher = (
 
   const fetchPocketSmithTransactions = useCallback(async () => {
     try {
-      const dateRange = calculateDateRange();
-      dispatch(pocketsmithFetchStart(dateRange));
+      const hasAmazonTransactions = state.transactions?.some(
+        t => t.csvType === CSVType.AMAZON
+      );
+
+      if (hasAmazonTransactions && !state.selectedTransactionAccountId) {
+        console.warn(
+          'Cannot fetch Amazon transactions without selected account ID'
+        );
+        return;
+      }
+
+      if (state.currentStep !== StepTypes.FETCHING_POCKETSMITH_TRANSACTIONS) {
+        console.warn(
+          'fetchPocketSmithTransactions called but not in FETCHING state'
+        );
+        return;
+      }
+
+      if (
+        !state.pocketsmithFetchDateRange?.startDate ||
+        state.pocketsmithFetchDateRange.startDate === ''
+      ) {
+        const dateRange = calculateDateRange();
+        dispatch(pocketsmithFetchStart(dateRange));
+        return;
+      }
+
+      const csvType = hasAmazonTransactions ? CSVType.AMAZON : CSVType.PAYPAL;
+      const searchTerm = csvType === CSVType.AMAZON ? 'Amazon' : 'Paypal';
+
+      const dateRange = {
+        startDate: DateTime.fromISO(state.pocketsmithFetchDateRange!.startDate),
+        endDate: DateTime.fromISO(state.pocketsmithFetchDateRange!.endDate),
+      };
 
       const transactions = await fetchUserTransactions({
         dateRange: {
-          startDate: dateRange.startDate!,
-          endDate: dateRange.endDate!,
+          startDate: dateRange.startDate,
+          endDate: dateRange.endDate,
         },
-        search: 'Paypal',
+        search: searchTerm,
         uncategorised: true,
         perPage: 1000,
+        transactionAccountId: state.selectedTransactionAccountId,
+        csvType: csvType,
       });
 
       dispatch(pocketsmithFetchSuccess(transactions));
@@ -65,16 +99,16 @@ const usePocketSmithFetchWatcher = (
 
   useEffect(() => {
     if (
-      state.currentStep === StepTypes.CSV_PROCESSING_SUCCESS &&
-      !state.pocketsmithTransactions
+      state.currentStep === StepTypes.FETCHING_POCKETSMITH_TRANSACTIONS &&
+      !state.pocketsmithTransactions &&
+      !state.pocketsmithFetchError
     ) {
       fetchPocketSmithTransactions();
     }
   }, [
     state.currentStep,
-    state.transactions,
     state.pocketsmithTransactions,
-    dispatch,
+    state.pocketsmithFetchError,
     fetchPocketSmithTransactions,
   ]);
 };

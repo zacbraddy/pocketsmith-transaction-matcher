@@ -1,8 +1,10 @@
 import { Dispatch, useCallback, useEffect } from 'react';
+import { DateTime } from 'luxon';
 import { Action } from '../actions/action.types';
 import {
   StepTypes,
   TransactionMatcherState,
+  CSVType,
   StandardisedTransaction,
 } from '../types';
 import {
@@ -10,190 +12,91 @@ import {
   transactionMatchingSuccess,
   transactionMatchingError,
 } from '../actions/transaction-matching.actions';
-import { DateTime } from 'luxon';
-import { env } from '@/env';
+import {
+  matchTransactions,
+  TransactionMatch,
+} from '../services/transaction-matching.service';
 
 const useTransactionMatchingWatcher = (
   state: TransactionMatcherState,
   dispatch: Dispatch<Action>
 ) => {
-  const isWithinBusinessDays = (date1: DateTime, date2: DateTime): boolean => {
-    if (!date1.isValid || !date2.isValid) {
-      return false;
+  const doTransactionMatching = useCallback(async () => {
+    if (!state.pocketsmithTransactions || !state.transactions) {
+      return;
     }
 
-    const daysDiff = Math.abs(date1.diff(date2, 'days').days);
-
-    if (daysDiff <= env.daysTolerance) {
-      return true;
-    }
-
-    if (daysDiff > env.daysTolerance + 2) {
-      return false;
-    }
-
-    const earlierDate = date1 < date2 ? date1 : date2;
-    const laterDate = date1 < date2 ? date2 : date1;
-    let businessDaysCount = 0;
-    let currentDate = earlierDate;
-
-    while (currentDate < laterDate && businessDaysCount <= env.daysTolerance) {
-      currentDate = currentDate.plus({ day: 1 });
-      const dayOfWeek = currentDate.weekday;
-      if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        businessDaysCount++;
-      }
-    }
-
-    return businessDaysCount <= env.daysTolerance;
-  };
-
-  const isAmountMatch = (
-    pocketsmithAmount: number,
-    paypalAmount: number,
-    isForeignCurrency: boolean
-  ): boolean => {
-    if (!isForeignCurrency) {
-      return (
-        Math.abs(pocketsmithAmount - paypalAmount) < env.amountToleranceExact
-      );
-    }
-
-    const allowedVariance =
-      Math.abs(pocketsmithAmount) * env.amountToleranceForeignPercent;
-    return Math.abs(pocketsmithAmount - paypalAmount) <= allowedVariance;
-  };
-
-  const matchTransactions = useCallback(() => {
     try {
       dispatch(transactionMatchingStart());
 
-      if (!state.pocketsmithTransactions || !state.transactions) {
-        throw new Error('Missing transaction data for matching');
+      const paypalTransactions = state.transactions.filter(
+        t => t.csvType === CSVType.PAYPAL
+      );
+      const amazonTransactions = state.transactions.filter(
+        t => t.csvType === CSVType.AMAZON
+      );
+
+      const allSuccessfulMatches: TransactionMatch[] = [];
+      const allUnmatchedCSV: StandardisedTransaction[] = [];
+      const unmatchedForInteractiveMatching: StandardisedTransaction[] = [];
+
+      if (paypalTransactions.length > 0) {
+        const paypalMatches = matchTransactions(
+          paypalTransactions,
+          state.pocketsmithTransactions
+        );
+
+        allSuccessfulMatches.push(...paypalMatches.successfulMatches);
+        allUnmatchedCSV.push(...paypalMatches.unmatchedCSV);
       }
 
-      const pocketsmithTransactions = state.pocketsmithTransactions;
-      const paypalTransactions = state.transactions;
+      if (amazonTransactions.length > 0) {
+        const amazonMatches = matchTransactions(
+          amazonTransactions,
+          state.pocketsmithTransactions
+        );
 
-      const potentialMatches = new Map<number, string[]>();
+        allSuccessfulMatches.push(...amazonMatches.successfulMatches);
+        allUnmatchedCSV.push(...amazonMatches.unmatchedCSV);
 
-      for (const pocketsmithTx of pocketsmithTransactions) {
-        const pocketsmithDate = DateTime.fromISO(pocketsmithTx.date);
-        const matchingPaypalIds: string[] = [];
+        const unmatchedPocketSmithTransactions =
+          amazonMatches.unmatchedPocketSmith.map(psTransaction => {
+            const standardised: StandardisedTransaction = {
+              Date: DateTime.fromISO(psTransaction.date),
+              Amount: psTransaction.amount,
+              Payee: psTransaction.payee || 'Unknown',
+              Note: `PocketSmith transaction - find matching Amazon order`,
+              csvType: CSVType.AMAZON,
+              pocketsmithTransactionId: psTransaction.id,
+              Labels: [],
+            };
+            return standardised;
+          });
 
-        for (const paypalTx of paypalTransactions) {
-          if (!paypalTx.paypalTransactionId) continue;
-
-          const isDateMatch = isWithinBusinessDays(
-            pocketsmithDate,
-            paypalTx.Date
-          );
-          const isValueMatch = isAmountMatch(
-            pocketsmithTx.amount,
-            paypalTx.Amount,
-            paypalTx.isForeignCurrency || false
-          );
-
-          if (isDateMatch && isValueMatch) {
-            const daysDiff = Math.abs(
-              pocketsmithDate.diff(paypalTx.Date, 'days').days
-            );
-            if (daysDiff > 7) {
-              console.warn(`⚠️ Suspicious match found:`, {
-                pocketsmithId: pocketsmithTx.id,
-                pocketsmithDate: pocketsmithDate.toFormat('dd/MM/yyyy'),
-                paypalDate: paypalTx.Date.toFormat('dd/MM/yyyy'),
-                daysDifference: daysDiff,
-                pocketsmithAmount: pocketsmithTx.amount,
-                paypalAmount: paypalTx.Amount,
-                paypalId: paypalTx.paypalTransactionId,
-              });
-            }
-            matchingPaypalIds.push(paypalTx.paypalTransactionId);
-          }
-        }
-
-        if (matchingPaypalIds.length > 0) {
-          potentialMatches.set(pocketsmithTx.id, matchingPaypalIds);
-        }
+        unmatchedForInteractiveMatching.push(
+          ...unmatchedPocketSmithTransactions
+        );
       }
 
-      const usedPaypalIds = new Set<string>();
-      const successfullyMatchedTransactions: StandardisedTransaction[] = [];
-      const unmatchedPocketsmithIds = new Set<number>();
-
-      while (potentialMatches.size > 0) {
-        let matchMade = false;
-
-        for (const [pocketsmithId, paypalIds] of potentialMatches.entries()) {
-          const availablePaypalIds = paypalIds.filter(
-            id => !usedPaypalIds.has(id)
-          );
-
-          if (availablePaypalIds.length > 0) {
-            const selectedPaypalId = availablePaypalIds[0];
-
-            const paypalTransaction = paypalTransactions.find(
-              tx => tx.paypalTransactionId === selectedPaypalId
-            );
-
-            if (paypalTransaction) {
-              const matchedTransaction: StandardisedTransaction = {
-                ...paypalTransaction,
-                pocketsmithTransactionId: pocketsmithId,
-              };
-
-              successfullyMatchedTransactions.push(matchedTransaction);
-              usedPaypalIds.add(selectedPaypalId);
-              matchMade = true;
-            }
-          }
-
-          potentialMatches.delete(pocketsmithId);
-        }
-
-        for (const [pocketsmithId, paypalIds] of potentialMatches.entries()) {
-          const availablePaypalIds = paypalIds.filter(
-            id => !usedPaypalIds.has(id)
-          );
-
-          if (availablePaypalIds.length === 0) {
-            unmatchedPocketsmithIds.add(pocketsmithId);
-            potentialMatches.delete(pocketsmithId);
-          } else {
-            potentialMatches.set(pocketsmithId, availablePaypalIds);
-          }
-        }
-
-        if (!matchMade && potentialMatches.size > 0) {
-          for (const pocketsmithId of potentialMatches.keys()) {
-            unmatchedPocketsmithIds.add(pocketsmithId);
-          }
-          break;
-        }
+      if (paypalTransactions.length > 0) {
+        unmatchedForInteractiveMatching.push(
+          ...allUnmatchedCSV.filter(t => t.csvType === CSVType.PAYPAL)
+        );
       }
 
-      const unmatchedTransactions: StandardisedTransaction[] =
-        pocketsmithTransactions
-          .filter(
-            psTx =>
-              !successfullyMatchedTransactions.some(
-                matched => matched.pocketsmithTransactionId === psTx.id
-              )
-          )
-          .map(psTx => ({
-            Date: DateTime.fromISO(psTx.date),
-            Note: psTx.memo,
-            Amount: psTx.amount,
-            Payee: psTx.payee,
-            Labels: psTx.labels || [],
-            pocketsmithTransactionId: psTx.id,
-          }));
+      const successfullyMatchedTransactions = allSuccessfulMatches.map(
+        match => ({
+          ...match.csvTransaction,
+          pocketsmithTransactionId: match.pocketsmithTransaction.id,
+          matchScore: match.matchScore,
+          matchReasons: match.matchReasons,
+        })
+      );
 
       dispatch(
         transactionMatchingSuccess({
           successfullyMatchedTransactions,
-          unmatchedTransactions,
+          unmatchedTransactions: unmatchedForInteractiveMatching,
         })
       );
     } catch (error) {
@@ -203,7 +106,7 @@ const useTransactionMatchingWatcher = (
         )
       );
     }
-  }, [dispatch, state]);
+  }, [dispatch, state.transactions, state.pocketsmithTransactions]);
 
   useEffect(() => {
     if (
@@ -212,15 +115,14 @@ const useTransactionMatchingWatcher = (
       state.transactions &&
       !state.successfullyMatchedTransactions
     ) {
-      matchTransactions();
+      doTransactionMatching();
     }
   }, [
     state.currentStep,
     state.pocketsmithTransactions,
     state.transactions,
     state.successfullyMatchedTransactions,
-    dispatch,
-    matchTransactions,
+    doTransactionMatching,
   ]);
 };
 

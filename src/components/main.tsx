@@ -8,6 +8,7 @@ import { DateTime } from 'luxon';
 import InteractiveMatching from './interactive-matching';
 import MatchConfirmation from './match-confirmation';
 import FinalStatistics from './final-statistics';
+import AccountSelection from './account-selection';
 
 const getDisplayMessage = (state: TransactionMatcherState) => {
   switch (state.currentStep) {
@@ -21,6 +22,8 @@ const getDisplayMessage = (state: TransactionMatcherState) => {
       return `✅ Successfully processed ${state.csvFiles?.length || 0} CSV file${(state.csvFiles?.length || 0) !== 1 ? 's' : ''} with ${state.totalTransactions || 0} total transactions`;
     case StepTypes.CSV_PROCESSING_ERROR:
       return `❌ Error processing CSV files: ${state.csvProcessingError}`;
+    case StepTypes.WAITING_FOR_ACCOUNT_SELECTION:
+      return `🏦 Please select a PocketSmith account to search for transactions`;
     case StepTypes.FETCHING_POCKETSMITH_TRANSACTIONS:
       return `🔄 Fetching PocketSmith transactions from ${state.pocketsmithFetchDateRange?.startDate} to ${state.pocketsmithFetchDateRange?.endDate}...`;
     case StepTypes.POCKETSMITH_FETCH_SUCCESS:
@@ -162,6 +165,10 @@ const Main = () => {
             ))}
           </Box>
         )}
+
+      {state.currentStep === StepTypes.WAITING_FOR_ACCOUNT_SELECTION && (
+        <AccountSelection state={state} dispatch={dispatch} />
+      )}
 
       {state.currentStep === StepTypes.CONFIRMING_MATCHED_TRANSACTIONS && (
         <MatchConfirmation state={state} dispatch={dispatch} />

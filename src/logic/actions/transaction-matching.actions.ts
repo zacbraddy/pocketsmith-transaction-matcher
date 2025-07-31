@@ -40,10 +40,18 @@ export const userResponseNoMatch = (): Action => ({
 });
 
 export const setManualMatchDetails = (payload: {
-  paypalTransactionNumber: string;
+  transactionId: string;
   payeeName: string;
 }): Action => ({
   type: ActionTypes.SET_MANUAL_MATCH_DETAILS,
+  payload,
+});
+
+export const setManualMultiMatchDetails = (payload: {
+  transactionIds: string[];
+  payeeName: string;
+}): Action => ({
+  type: ActionTypes.SET_MANUAL_MULTI_MATCH_DETAILS,
   payload,
 });
 

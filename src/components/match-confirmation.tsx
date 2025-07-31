@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Text, Box, useInput } from 'ink';
 import { DateTime } from 'luxon';
-import { TransactionMatcherState } from '../logic/types';
+import { TransactionMatcherState, CSVType } from '../logic/types';
 import { Action } from '../logic/actions/action.types';
 import {
   confirmMatch,
@@ -38,12 +38,15 @@ const MatchConfirmation: React.FC<MatchConfirmationProps> = React.memo(
       [state.currentMatchIndex, state.successfullyMatchedTransactions?.length]
     );
 
+    const isAmazonTransaction =
+      currentMatchedTransaction?.csvType === CSVType.AMAZON;
+
     const dateInfo = useMemo(() => {
       if (!currentMatchedTransaction || !currentPocketsmithTransaction)
         return null;
 
       return {
-        paypalDate: currentMatchedTransaction.Date.toFormat('dd/MM/yyyy'),
+        csvDate: currentMatchedTransaction.Date.toFormat('dd/MM/yyyy'),
         pocketsmithDate: DateTime.fromISO(
           currentPocketsmithTransaction.date
         ).toFormat('dd/MM/yyyy'),
@@ -81,7 +84,9 @@ const MatchConfirmation: React.FC<MatchConfirmationProps> = React.memo(
             width="50%"
           >
             <Text color="green" bold>
-              📄 PayPal Transaction (CSV){' '}
+              {isAmazonTransaction
+                ? '📦 Amazon Order (CSV)'
+                : '📄 PayPal Transaction (CSV)'}{' '}
               {currentMatchedTransaction.manuallyMatched
                 ? '🤝 Manual Match'
                 : '🤖 Auto Match'}
@@ -89,14 +94,32 @@ const MatchConfirmation: React.FC<MatchConfirmationProps> = React.memo(
             <Text color="white">
               Amount: £{currentMatchedTransaction.Amount.toFixed(2)}
             </Text>
-            <Text color="white">Date: {dateInfo?.paypalDate}</Text>
+            <Text color="white">Date: {dateInfo?.csvDate}</Text>
             <Text color="white">Payee: {currentMatchedTransaction.Payee}</Text>
             <Text color="white">Note: {currentMatchedTransaction.Note}</Text>
-            {currentMatchedTransaction.paypalTransactionId && (
+            {isAmazonTransaction && currentMatchedTransaction.amazonOrderId && (
               <Text color="white">
-                PayPal ID: {currentMatchedTransaction.paypalTransactionId}
+                Order ID: {currentMatchedTransaction.amazonOrderId}
               </Text>
             )}
+            {isAmazonTransaction && currentMatchedTransaction.amazonItems && (
+              <Text color="white">
+                Items:{' '}
+                {currentMatchedTransaction.amazonItems
+                  .split(';')
+                  .slice(0, 2)
+                  .join('; ')}
+                {currentMatchedTransaction.amazonItems.split(';').length > 2
+                  ? '...'
+                  : ''}
+              </Text>
+            )}
+            {!isAmazonTransaction &&
+              currentMatchedTransaction.paypalTransactionId && (
+                <Text color="white">
+                  PayPal ID: {currentMatchedTransaction.paypalTransactionId}
+                </Text>
+              )}
             {currentMatchedTransaction.isForeignCurrency && (
               <Text color="yellow">⚠️ Foreign Currency</Text>
             )}
