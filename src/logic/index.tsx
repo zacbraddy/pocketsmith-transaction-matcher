@@ -1,5 +1,6 @@
 import { useEffect, useReducer } from 'react';
 import transactionMatcherReducer from './reducer';
+import { StepTypes } from './types';
 import { initialisingAction } from './actions/initialising.action';
 import useInitialisingWatcher from './watchers/initialising.watcher';
 import useProcessingInputsWatcher from './watchers/processing-inputs.watcher';
@@ -9,7 +10,9 @@ import useInteractiveMatchingWatcher from './watchers/interactive-matching.watch
 import useMatchConfirmationWatcher from './watchers/match-confirmation.watcher';
 
 const useTransactionMatcher = () => {
-  const [state, dispatch] = useReducer(transactionMatcherReducer, {});
+  const [state, dispatch] = useReducer(transactionMatcherReducer, {
+    currentStep: StepTypes.INITIALISING,
+  });
 
   useEffect(() => {
     dispatch(initialisingAction());

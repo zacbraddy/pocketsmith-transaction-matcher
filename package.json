@@ -6,15 +6,15 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node --import tsx/esm dist/index.js",
     "dev": "node --watch --import tsx/esm src/index.tsx",
     "clean": "rm -rf dist",
-    "prebuild": "npm run clean && npm run lint:check && npm run format:check",
+    "prebuild": "pnpm run clean && pnpm run lint:check && pnpm run format:check",
     "lint": "eslint src --ext .ts --ext .tsx --fix",
     "lint:check": "eslint src --ext .ts --ext .tsx",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,json}\"",
-    "format:lint": "npm run format && npm run lint",
+    "format:lint": "pnpm run format && pnpm run lint",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -39,6 +39,8 @@
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.3",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "prettier": "^3.6.2",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3"

@@ -26,9 +26,7 @@ export const processCSVFiles = async (
 
   // Read all files from the input directory
   const files = fs.readdirSync(inputFolder);
-  const csvFiles = files.filter(file =>
-    file.toLowerCase().endsWith('.csv')
-  );
+  const csvFiles = files.filter(file => file.toLowerCase().endsWith('.csv'));
 
   if (csvFiles.length === 0) {
     throw new Error('No CSV files found in the input directory');
@@ -53,8 +51,8 @@ export const processCSVFiles = async (
       }
 
       return parseResult.data
-        .filter(transaction =>
-          !excludeDescriptions.includes(transaction.Description)
+        .filter(
+          transaction => !excludeDescriptions.includes(transaction.Description)
         )
         .map(transaction => ({ ...transaction, OriginalCSV: filename }));
     })
@@ -87,9 +85,12 @@ export const processCSVFiles = async (
 
     let originalDateString: string;
     try {
-      const originalDateTime = DateTime.fromISO(`${transaction.Date} ${transaction.Time}`, {
-        zone: transaction['Time Zone']
-      }).setZone('Europe/London');
+      const originalDateTime = DateTime.fromISO(
+        `${transaction.Date} ${transaction.Time}`,
+        {
+          zone: transaction['Time Zone'],
+        }
+      ).setZone('Europe/London');
 
       originalDateString = originalDateTime.isValid
         ? originalDateTime.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)
@@ -104,12 +105,17 @@ export const processCSVFiles = async (
       note += `\nConverted from ${transaction.Currency} to ${baseCurrency} at ${rate} on ${runDate.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}`;
     }
 
+    const labels = ['automatched', 'paypal'];
+    if (transaction.Currency !== baseCurrency) {
+      labels.push('foreign-currency');
+    }
+
     return {
       Date: transactionDateTime,
       Payee: transaction.Name,
       Note: note,
       Amount: Number(transaction.Gross) / rate,
-      Labels: ['Paypal Automated Conversion'],
+      Labels: labels,
       isForeignCurrency: transaction.Currency !== baseCurrency,
       OriginalCSV: transaction.OriginalCSV,
       paypalTransactionId: transaction['Transaction ID'],

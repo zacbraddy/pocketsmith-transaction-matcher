@@ -57,8 +57,9 @@ export const fetchUserTransactions = async ({
 
   const user = await fetchCurrentUser();
 
-  const { data: rawTransactions, error: transactionsError } =
-    await client.GET('/users/{id}/transactions', {
+  const { data: rawTransactions, error: transactionsError } = await client.GET(
+    '/users/{id}/transactions',
+    {
       params: {
         path: { id: user.id },
         query: {
@@ -69,7 +70,8 @@ export const fetchUserTransactions = async ({
           per_page: perPage,
         },
       },
-    });
+    }
+  );
 
   if (transactionsError) {
     throw new Error(
@@ -82,9 +84,16 @@ export const fetchUserTransactions = async ({
   }
 
   const filteredTransactions = rawTransactions
-    .filter(transaction =>
-      transaction.payee?.toLowerCase().includes(search.toLowerCase())
-    )
+    .filter(transaction => {
+      const matchesPayee = transaction.payee
+        ?.toLowerCase()
+        .includes(search.toLowerCase());
+      const hasNoMemo = !transaction.memo || transaction.memo.trim() === '';
+      const hasNoLabels =
+        !transaction.labels || transaction.labels.length === 0;
+
+      return matchesPayee && hasNoMemo && hasNoLabels;
+    })
     .map(transaction => ({
       id: transaction.id || 0,
       payee: transaction.payee || '',

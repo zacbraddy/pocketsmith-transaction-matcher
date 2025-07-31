@@ -1,4 +1,4 @@
-import { Dispatch, useEffect } from 'react';
+import { Dispatch, useCallback, useEffect } from 'react';
 import { Action } from '../actions/action.types';
 import {
   StepTypes,
@@ -32,8 +32,8 @@ const useTransactionMatchingWatcher = (
       return false;
     }
 
-    let earlierDate = date1 < date2 ? date1 : date2;
-    let laterDate = date1 < date2 ? date2 : date1;
+    const earlierDate = date1 < date2 ? date1 : date2;
+    const laterDate = date1 < date2 ? date2 : date1;
     let businessDaysCount = 0;
     let currentDate = earlierDate;
 
@@ -64,7 +64,7 @@ const useTransactionMatchingWatcher = (
     return Math.abs(pocketsmithAmount - paypalAmount) <= allowedVariance;
   };
 
-  const matchTransactions = () => {
+  const matchTransactions = useCallback(() => {
     try {
       dispatch(transactionMatchingStart());
 
@@ -95,7 +95,9 @@ const useTransactionMatchingWatcher = (
           );
 
           if (isDateMatch && isValueMatch) {
-            const daysDiff = Math.abs(pocketsmithDate.diff(paypalTx.Date, 'days').days);
+            const daysDiff = Math.abs(
+              pocketsmithDate.diff(paypalTx.Date, 'days').days
+            );
             if (daysDiff > 7) {
               console.warn(`⚠️ Suspicious match found:`, {
                 pocketsmithId: pocketsmithTx.id,
@@ -201,7 +203,7 @@ const useTransactionMatchingWatcher = (
         )
       );
     }
-  };
+  }, [dispatch, state]);
 
   useEffect(() => {
     if (
@@ -218,9 +220,8 @@ const useTransactionMatchingWatcher = (
     state.transactions,
     state.successfullyMatchedTransactions,
     dispatch,
+    matchTransactions,
   ]);
-
-
 };
 
 export default useTransactionMatchingWatcher;

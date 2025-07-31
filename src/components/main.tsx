@@ -61,21 +61,7 @@ const Main = () => {
       }
       return prevBuffer;
     });
-  }, [
-    state.currentStep,
-    state.csvProcessingError,
-    state.csvFiles,
-    state.totalTransactions,
-    state.pocketsmithFetchError,
-    state.pocketsmithTransactions,
-    state.pocketsmithFetchDateRange,
-    state.successfullyMatchedTransactions,
-    state.unmatchedTransactions,
-    state.manuallyMatchedTransactions,
-    state.transactionMatchingError,
-    state.currentMatchIndex,
-    state.currentUnmatchedIndex,
-  ]);
+  }, [state]);
 
   return (
     <Box flexDirection="column">
@@ -103,7 +89,7 @@ const Main = () => {
               {isLatest &&
                 (state.currentStep === StepTypes.IS_PROCESSING_CSV ||
                   state.currentStep ===
-                  StepTypes.FETCHING_POCKETSMITH_TRANSACTIONS ||
+                    StepTypes.FETCHING_POCKETSMITH_TRANSACTIONS ||
                   state.currentStep === StepTypes.MATCHING_TRANSACTIONS) && (
                   <Box marginLeft={1}>
                     <Spinner type="fistBump" />
@@ -145,14 +131,20 @@ const Main = () => {
       {state.successfullyMatchedTransactions &&
         state.successfullyMatchedTransactions.length > 0 && (
           <Box flexDirection="column" marginTop={1}>
-            <Text color="cyan">🤖 Auto-Matched Transactions: {state.successfullyMatchedTransactions.length} total</Text>
+            <Text color="cyan">
+              🤖 Auto-Matched Transactions:{' '}
+              {state.successfullyMatchedTransactions.length} total
+            </Text>
           </Box>
         )}
 
       {state.manuallyMatchedTransactions &&
         state.manuallyMatchedTransactions.length > 0 && (
           <Box flexDirection="column" marginTop={1}>
-            <Text color="green">🤝 Manually Matched Transactions: {state.manuallyMatchedTransactions.length} total</Text>
+            <Text color="green">
+              🤝 Manually Matched Transactions:{' '}
+              {state.manuallyMatchedTransactions.length} total
+            </Text>
           </Box>
         )}
 

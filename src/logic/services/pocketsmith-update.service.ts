@@ -5,17 +5,24 @@ export interface PocketSmithUpdateRequest {
   transactionId: number;
   payee: string;
   memo: string;
+  labels?: string[];
 }
 
 export const updatePocketSmithTransaction = async ({
   transactionId,
   payee,
   memo,
+  labels = [],
 }: PocketSmithUpdateRequest): Promise<void> => {
   const client = createPocketSmithClient({
     apiKey: env.pocketsmithApiKey,
     baseUrl: env.pocketsmithBaseUrl,
   });
+
+  const finalLabels = [...labels];
+  if (!finalLabels.includes('automatched')) {
+    finalLabels.push('automatched');
+  }
 
   const { error } = await client.PUT('/transactions/{id}', {
     params: {
@@ -24,6 +31,7 @@ export const updatePocketSmithTransaction = async ({
     body: {
       payee,
       memo,
+      labels: finalLabels.join(','),
     },
   });
 

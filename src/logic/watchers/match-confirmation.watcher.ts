@@ -1,20 +1,13 @@
 import { Dispatch, useEffect } from 'react';
-import { Action, ActionTypes } from '../actions/action.types';
-import {
-  StepTypes,
-  TransactionMatcherState,
-  StandardisedTransaction,
-} from '../types';
+import { Action } from '../actions/action.types';
+import { StepTypes, TransactionMatcherState } from '../types';
 import {
   confirmingMatchedTransactionsStart,
   setCurrentMatchIndex,
   confirmingMatchedTransactionsComplete,
   processingComplete,
 } from '../actions/match-confirmation.actions';
-import {
-  interactiveMatchingStart,
-  interactiveMatchingComplete,
-} from '../actions/transaction-matching.actions';
+import { interactiveMatchingStart } from '../actions/transaction-matching.actions';
 import { updatePocketSmithTransaction } from '../services';
 
 const useMatchConfirmationWatcher = (
@@ -24,13 +17,15 @@ const useMatchConfirmationWatcher = (
   const handlePocketSmithUpdate = async (
     transactionId: number,
     payee: string,
-    note: string
+    note: string,
+    labels?: string[]
   ) => {
     try {
       await updatePocketSmithTransaction({
         transactionId,
         payee,
         memo: note,
+        labels,
       });
     } catch (error) {
       console.error('Failed to update PocketSmith transaction:', error);
@@ -47,7 +42,8 @@ const useMatchConfirmationWatcher = (
       dispatch(interactiveMatchingStart());
     } else if (
       state.currentStep === StepTypes.TRANSACTION_MATCHING_SUCCESS &&
-      (!state.unmatchedTransactions || state.unmatchedTransactions.length === 0) &&
+      (!state.unmatchedTransactions ||
+        state.unmatchedTransactions.length === 0) &&
       state.successfullyMatchedTransactions &&
       state.successfullyMatchedTransactions.length > 0 &&
       !state.currentMatchIndex
@@ -72,28 +68,33 @@ const useMatchConfirmationWatcher = (
         currentTransaction &&
         state.confirmedMatches &&
         state.confirmedMatches.length > (state.currentMatchIndex || 0) &&
-        state.confirmedMatches[state.currentMatchIndex || 0] === currentTransaction
+        state.confirmedMatches[state.currentMatchIndex || 0] ===
+          currentTransaction
       ) {
         handlePocketSmithUpdate(
           currentTransaction.pocketsmithTransactionId!,
           currentTransaction.Payee,
-          currentTransaction.Note
+          currentTransaction.Note,
+          currentTransaction.Labels
         )
           .then(() => {
             const nextIndex = (state.currentMatchIndex || 0) + 1;
-            const totalMatches = state.successfullyMatchedTransactions?.length || 0;
+            const totalMatches =
+              state.successfullyMatchedTransactions?.length || 0;
 
             if (nextIndex >= totalMatches) {
               const confirmedCount = state.confirmedMatches?.length || 0;
               const rejectedCount = state.rejectedMatches?.length || 0;
-              const manuallyMatchedCount = state.manuallyMatchedTransactions?.length || 0;
-              const totalPocketsmithTransactions = state.pocketsmithTransactions?.length || 0;
-              const remainingUnmatched = state.unmatchedTransactions?.length || 0;
+              const manuallyMatchedCount =
+                state.manuallyMatchedTransactions?.length || 0;
+              const totalPocketsmithTransactions =
+                state.pocketsmithTransactions?.length || 0;
 
-              const skippedDuringConfirmation = state.rejectedMatches?.map(rejected => ({
-                ...rejected,
-                skippedDuringMatching: true,
-              })) || [];
+              const skippedDuringConfirmation =
+                state.rejectedMatches?.map(rejected => ({
+                  ...rejected,
+                  skippedDuringMatching: true,
+                })) || [];
 
               const finalUnmatchedTransactions = [
                 ...(state.unmatchedTransactions || []),
@@ -111,7 +112,7 @@ const useMatchConfirmationWatcher = (
                 })
               );
 
-              dispatch(interactiveMatchingComplete());
+              dispatch(processingComplete());
             } else {
               dispatch(setCurrentMatchIndex(nextIndex));
             }
@@ -122,7 +123,8 @@ const useMatchConfirmationWatcher = (
       } else if (
         state.rejectedMatches &&
         state.rejectedMatches.length > (state.currentMatchIndex || 0) &&
-        state.rejectedMatches[state.currentMatchIndex || 0] === currentTransaction
+        state.rejectedMatches[state.currentMatchIndex || 0] ===
+          currentTransaction
       ) {
         const nextIndex = (state.currentMatchIndex || 0) + 1;
         const totalMatches = state.successfullyMatchedTransactions?.length || 0;
@@ -130,13 +132,16 @@ const useMatchConfirmationWatcher = (
         if (nextIndex >= totalMatches) {
           const confirmedCount = state.confirmedMatches?.length || 0;
           const rejectedCount = state.rejectedMatches?.length || 0;
-          const manuallyMatchedCount = state.manuallyMatchedTransactions?.length || 0;
-          const totalPocketsmithTransactions = state.pocketsmithTransactions?.length || 0;
+          const manuallyMatchedCount =
+            state.manuallyMatchedTransactions?.length || 0;
+          const totalPocketsmithTransactions =
+            state.pocketsmithTransactions?.length || 0;
 
-          const skippedDuringConfirmation = state.rejectedMatches?.map(rejected => ({
-            ...rejected,
-            skippedDuringMatching: true,
-          })) || [];
+          const skippedDuringConfirmation =
+            state.rejectedMatches?.map(rejected => ({
+              ...rejected,
+              skippedDuringMatching: true,
+            })) || [];
 
           const finalUnmatchedTransactions = [
             ...(state.unmatchedTransactions || []),
@@ -154,38 +159,99 @@ const useMatchConfirmationWatcher = (
             })
           );
 
-          dispatch(interactiveMatchingComplete());
+          dispatch(processingComplete());
         } else {
           dispatch(setCurrentMatchIndex(nextIndex));
         }
       }
     }
-  }, [
-    state.currentStep,
-    state.currentMatchIndex,
-    state.successfullyMatchedTransactions,
-    state.confirmedMatches,
-    state.rejectedMatches,
-    dispatch,
-  ]);
+  }, [state, dispatch]);
 
   useEffect(() => {
     if (
+      state.currentStep === StepTypes.INTERACTIVE_MATCHING_COMPLETE &&
+      state.manuallyMatchedTransactions &&
+      state.manuallyMatchedTransactions.length > 0
+    ) {
+      const processManualMatches = async () => {
+        for (const transaction of state.manuallyMatchedTransactions!) {
+          try {
+            await handlePocketSmithUpdate(
+              transaction.pocketsmithTransactionId!,
+              transaction.Payee,
+              transaction.Note,
+              transaction.Labels
+            );
+          } catch (error) {
+            console.error(
+              'Failed to update manually matched transaction:',
+              error
+            );
+          }
+        }
+
+        if (
+          !state.successfullyMatchedTransactions ||
+          state.successfullyMatchedTransactions.length === 0
+        ) {
+          const manuallyMatchedCount =
+            state.manuallyMatchedTransactions?.length || 0;
+          const totalPocketsmithTransactions =
+            state.pocketsmithTransactions?.length || 0;
+          const finalUnmatchedTransactions = state.unmatchedTransactions || [];
+
+          dispatch(
+            confirmingMatchedTransactionsComplete({
+              totalPocketsmithTransactions,
+              automaticallyMatched: 0,
+              manuallyMatched: manuallyMatchedCount,
+              skippedDuringConfirmation: 0,
+              remainingUnmatched: finalUnmatchedTransactions.length,
+              unmatchedTransactions: finalUnmatchedTransactions,
+            })
+          );
+          dispatch(processingComplete());
+        } else {
+          dispatch(confirmingMatchedTransactionsStart());
+          dispatch(setCurrentMatchIndex(0));
+        }
+      };
+
+      processManualMatches();
+    } else if (
+      state.currentStep === StepTypes.INTERACTIVE_MATCHING_COMPLETE &&
+      (!state.successfullyMatchedTransactions ||
+        state.successfullyMatchedTransactions.length === 0) &&
+      (!state.manuallyMatchedTransactions ||
+        state.manuallyMatchedTransactions.length === 0)
+    ) {
+      const totalPocketsmithTransactions =
+        state.pocketsmithTransactions?.length || 0;
+      const finalUnmatchedTransactions = state.unmatchedTransactions || [];
+
+      dispatch(
+        confirmingMatchedTransactionsComplete({
+          totalPocketsmithTransactions,
+          automaticallyMatched: 0,
+          manuallyMatched: 0,
+          skippedDuringConfirmation: 0,
+          remainingUnmatched: finalUnmatchedTransactions.length,
+          unmatchedTransactions: finalUnmatchedTransactions,
+        })
+      );
+      dispatch(processingComplete());
+    } else if (
       state.currentStep === StepTypes.INTERACTIVE_MATCHING_COMPLETE &&
       state.successfullyMatchedTransactions &&
       state.successfullyMatchedTransactions.length > 0
     ) {
       dispatch(confirmingMatchedTransactionsStart());
       dispatch(setCurrentMatchIndex(0));
-    } else if (
-      state.currentStep === StepTypes.INTERACTIVE_MATCHING_COMPLETE &&
-      (!state.successfullyMatchedTransactions || state.successfullyMatchedTransactions.length === 0)
-    ) {
-      dispatch(processingComplete());
     }
   }, [
     state.currentStep,
     state.successfullyMatchedTransactions,
+    state.manuallyMatchedTransactions,
     dispatch,
   ]);
 };

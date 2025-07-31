@@ -1,9 +1,6 @@
-import { Dispatch, useEffect } from 'react';
+import { Dispatch, useCallback, useEffect } from 'react';
 import { Action } from '../actions/action.types';
-import {
-  StepTypes,
-  TransactionMatcherState,
-} from '../types';
+import { StepTypes, TransactionMatcherState } from '../types';
 import {
   pocketsmithFetchStart,
   pocketsmithFetchSuccess,
@@ -17,7 +14,7 @@ const usePocketSmithFetchWatcher = (
   state: TransactionMatcherState,
   dispatch: Dispatch<Action>
 ) => {
-  const calculateDateRange = () => {
+  const calculateDateRange = useCallback(() => {
     if (!state.transactions || state.transactions.length === 0) {
       throw new Error('No CSV transactions available to calculate date range');
     }
@@ -39,9 +36,9 @@ const usePocketSmithFetchWatcher = (
       startDate: startDate,
       endDate: finalEndDate,
     };
-  };
+  }, [state]);
 
-  const fetchPocketSmithTransactions = async () => {
+  const fetchPocketSmithTransactions = useCallback(async () => {
     try {
       const dateRange = calculateDateRange();
       dispatch(pocketsmithFetchStart(dateRange));
@@ -64,7 +61,7 @@ const usePocketSmithFetchWatcher = (
         )
       );
     }
-  };
+  }, [dispatch, calculateDateRange]);
 
   useEffect(() => {
     if (
@@ -78,6 +75,7 @@ const usePocketSmithFetchWatcher = (
     state.transactions,
     state.pocketsmithTransactions,
     dispatch,
+    fetchPocketSmithTransactions,
   ]);
 };
 

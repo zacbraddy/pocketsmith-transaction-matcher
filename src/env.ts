@@ -53,17 +53,6 @@ function getEnvNumber(key: string, defaultValue: number): number {
 }
 
 /**
- * Get environment variable as boolean
- */
-function getEnvBoolean(key: string, defaultValue: boolean): boolean {
-  const value = process.env[key];
-  if (value === undefined) {
-    return defaultValue;
-  }
-  return value.toLowerCase() === 'true';
-}
-
-/**
  * Load and validate environment configuration
  */
 export function loadEnvConfig(): EnvConfig {

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Text, Box } from 'ink';
-import { DateTime } from 'luxon';
 import {
+  StandardisedTransaction,
   TransactionMatcherState,
 } from '../logic/types';
 
@@ -36,14 +36,13 @@ const FinalStatistics: React.FC<FinalStatisticsProps> = ({ state }) => {
           📊 Final Statistics:
         </Text>
         <Text color="white">
-          • Total PocketSmith transactions processed: {stats.totalPocketsmithTransactions}
+          • Total PocketSmith transactions processed:{' '}
+          {stats.totalPocketsmithTransactions}
         </Text>
         <Text color="green">
           • Automatically matched and updated: {stats.automaticallyMatched}
         </Text>
-        <Text color="yellow">
-          • Manually matched: {stats.manuallyMatched}
-        </Text>
+        <Text color="yellow">• Manually matched: {stats.manuallyMatched}</Text>
         <Text color="red">
           • Skipped during confirmation: {stats.skippedDuringConfirmation}
         </Text>
@@ -57,26 +56,33 @@ const FinalStatistics: React.FC<FinalStatisticsProps> = ({ state }) => {
           <Text color="red" bold>
             ❌ Unmatched Transactions:
           </Text>
-          {unmatchedTransactions.map((transaction, index) => (
-            <Box key={index} flexDirection="column" marginLeft={2} marginTop={1}>
-              <Text color="white">
-                {index + 1}. £{transaction.Amount.toFixed(2)} - {transaction.Date.toFormat('dd/MM/yyyy')} - {transaction.Payee}
-              </Text>
-              <Text color="gray">
-                Note: {transaction.Note}
-              </Text>
-              {transaction.pocketsmithTransactionId && (
-                <Text color="gray">
-                  PocketSmith ID: {transaction.pocketsmithTransactionId}
+          {unmatchedTransactions.map(
+            (transaction: StandardisedTransaction, index: number) => (
+              <Box
+                key={index}
+                flexDirection="column"
+                marginLeft={2}
+                marginTop={1}
+              >
+                <Text color="white">
+                  {index + 1}. £{transaction.Amount.toFixed(2)} -{' '}
+                  {transaction.Date.toFormat('dd/MM/yyyy')} -{' '}
+                  {transaction.Payee}
                 </Text>
-              )}
-              {(transaction as any).skippedDuringMatching && (
-                <Text color="yellow">
-                  ⚠️ Skipped during matching confirmation
-                </Text>
-              )}
-            </Box>
-          ))}
+                <Text color="gray">Note: {transaction.Note}</Text>
+                {transaction.pocketsmithTransactionId && (
+                  <Text color="gray">
+                    PocketSmith ID: {transaction.pocketsmithTransactionId}
+                  </Text>
+                )}
+                {transaction.skippedDuringMatching && (
+                  <Text color="yellow">
+                    ⚠️ Skipped during matching confirmation
+                  </Text>
+                )}
+              </Box>
+            )
+          )}
         </Box>
       )}
 

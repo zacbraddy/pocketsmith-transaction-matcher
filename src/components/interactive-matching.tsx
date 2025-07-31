@@ -1,10 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Text, Box, useInput } from 'ink';
 import { DateTime } from 'luxon';
-import {
-  StandardisedTransaction,
-  TransactionMatcherState,
-} from '../logic/types';
+import { TransactionMatcherState } from '../logic/types';
 import { Action } from '../logic/actions/action.types';
 import {
   userResponseFoundMatch,
@@ -39,28 +36,29 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
   const currentTransaction =
     state.unmatchedTransactions?.[state.currentUnmatchedIndex || 0];
 
-  if (!currentTransaction && !state.paypalIdConflict) {
-    return null;
-  }
-
-  const isConflictMode = state.waitingForConflictResolution && state.paypalIdConflict;
+  const isConflictMode =
+    state.waitingForConflictResolution && state.paypalIdConflict;
 
   const paypalUrl = useMemo(() => {
     if (!currentTransaction) return '';
     return generatePayPalSearchUrl(currentTransaction.Date);
-  }, [currentTransaction?.Date]);
+  }, [currentTransaction]);
 
   const progress = useMemo(() => {
     if (isConflictMode) return 'Resolving conflict';
     return `${(state.currentUnmatchedIndex || 0) + 1}/${state.unmatchedTransactions?.length || 0}`;
-  }, [state.currentUnmatchedIndex, state.unmatchedTransactions?.length, isConflictMode]);
+  }, [
+    state.currentUnmatchedIndex,
+    state.unmatchedTransactions?.length,
+    isConflictMode,
+  ]);
 
   const formattedDate = useMemo(() => {
     if (!currentTransaction) return '';
     return currentTransaction.Date.toFormat('dd/MM/yyyy');
-  }, [currentTransaction?.Date]);
+  }, [currentTransaction]);
 
-  useInput((input, key) => {
+  useInput(input => {
     if (isConflictMode && currentInput === 'conflict-resolution') {
       if (input === '1') {
         dispatch(resolvePaypalIdConflict({ keepExisting: true }));
@@ -82,10 +80,12 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
   useEffect(() => {
     if (isConflictMode) {
       setCurrentInput('conflict-resolution');
-    } else if (!state.waitingForUserInput) {
-      setCurrentInput('waiting');
     }
-  }, [isConflictMode, state.waitingForUserInput]);
+  }, [isConflictMode]);
+
+  if (!currentTransaction && !state.paypalIdConflict) {
+    return null;
+  }
 
   const handlePaypalIdSubmit = (value: string) => {
     setPaypalId(value);
@@ -122,18 +122,35 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
             PayPal ID "{state.paypalIdConflict.paypalId}" is already matched to:
           </Text>
           <Text color="yellow">
-            Existing: £{state.paypalIdConflict.existingTransaction.Amount.toFixed(2)} - {state.paypalIdConflict.existingTransaction.Payee} - {state.paypalIdConflict.existingTransaction.Date.toFormat('dd/MM/yyyy')}
-            {state.paypalIdConflict.existingTransaction.manuallyMatched ? ' (Manually matched)' : ' (Auto matched)'}
+            Existing: £
+            {state.paypalIdConflict.existingTransaction.Amount.toFixed(2)} -{' '}
+            {state.paypalIdConflict.existingTransaction.Payee} -{' '}
+            {state.paypalIdConflict.existingTransaction.Date.toFormat(
+              'dd/MM/yyyy'
+            )}
+            {state.paypalIdConflict.existingTransaction.manuallyMatched
+              ? ' (Manually matched)'
+              : ' (Auto matched)'}
           </Text>
           <Text color="cyan">
-            Current: £{state.paypalIdConflict.currentTransaction.Amount.toFixed(2)} - {state.paypalIdConflict.currentTransaction.Payee} - {state.paypalIdConflict.currentTransaction.Date.toFormat('dd/MM/yyyy')}
+            Current: £
+            {state.paypalIdConflict.currentTransaction.Amount.toFixed(2)} -{' '}
+            {state.paypalIdConflict.currentTransaction.Payee} -{' '}
+            {state.paypalIdConflict.currentTransaction.Date.toFormat(
+              'dd/MM/yyyy'
+            )}
           </Text>
         </Box>
 
         <Box flexDirection="column" marginTop={1}>
           <Text color="green">What would you like to do?</Text>
-          <Text color="white">1. Keep the existing match (current transaction will remain unmatched)</Text>
-          <Text color="white">2. Replace with new match (existing transaction will be unmatched)</Text>
+          <Text color="white">
+            1. Keep the existing match (current transaction will remain
+            unmatched)
+          </Text>
+          <Text color="white">
+            2. Replace with new match (existing transaction will be unmatched)
+          </Text>
           <Text color="gray">Press 1 or 2 to choose</Text>
         </Box>
       </Box>
@@ -156,9 +173,7 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
           <Text color="white">
             • Amount: £{currentTransaction.Amount.toFixed(2)}
           </Text>
-          <Text color="white">
-            • Date: {formattedDate}
-          </Text>
+          <Text color="white">• Date: {formattedDate}</Text>
           <Text color="white">• Payee: {currentTransaction.Payee}</Text>
           <Text color="white">• Note: {currentTransaction.Note}</Text>
           <Text color="white">
@@ -191,6 +206,7 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
             value={paypalId}
             onChange={setPaypalId}
             onSubmit={handlePaypalIdSubmit}
+            focus={true}
           />
         </Box>
       )}
@@ -202,6 +218,7 @@ const InteractiveMatching: React.FC<InteractiveMatchingProps> = ({
             value={payeeName}
             onChange={setPayeeName}
             onSubmit={handlePayeeNameSubmit}
+            focus={true}
           />
         </Box>
       )}

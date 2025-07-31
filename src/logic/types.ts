@@ -51,6 +51,7 @@ export interface StandardisedTransaction {
   pocketsmithTransactionId?: number;
   paypalTransactionId?: string;
   manuallyMatched?: boolean;
+  skippedDuringMatching?: boolean;
 }
 
 export interface PocketSmithTransaction {

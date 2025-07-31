@@ -133,7 +133,7 @@ const transactionMatcherReducer = (
       return {
         ...state,
         userFoundMatch: true,
-        waitingForUserInput: false,
+        waitingForUserInput: true,
       };
     case ActionTypes.USER_RESPONSE_NO_MATCH:
       return {
@@ -150,6 +150,7 @@ const transactionMatcherReducer = (
         ...state,
         paypalTransactionNumber: matchDetails.paypalTransactionNumber,
         payeeName: matchDetails.payeeName,
+        waitingForUserInput: false,
       };
     case ActionTypes.PROCESS_MANUAL_MATCH:
       const currentTransaction =
@@ -185,16 +186,28 @@ const transactionMatcherReducer = (
           t => t.paypalTransactionId === state.paypalTransactionNumber
         );
 
-        const manualMatchTimestamp = DateTime.now().setZone('Europe/London').toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS);
+        const manualMatchTimestamp = DateTime.now()
+          .setZone('Europe/London')
+          .toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS);
 
         let updatedNote: string;
+        let updatedLabels: string[];
+
         if (processedTransaction) {
-          updatedNote = processedTransaction.Note.replace(
-            /^Automatched from Paypal/,
-            `Manually matched from Paypal`
-          ) + `\nManually matched on ${manualMatchTimestamp}`;
+          updatedNote =
+            processedTransaction.Note.replace(
+              /^Automatched from Paypal/,
+              `Manually matched from Paypal`
+            ) + `\nManually matched on ${manualMatchTimestamp}`;
+
+          updatedLabels = [...(processedTransaction.Labels || [])];
+          if (!updatedLabels.includes('manual-match')) {
+            updatedLabels.push('manual-match');
+          }
         } else {
           updatedNote = `${currentTransaction.Note}\nManually matched on ${manualMatchTimestamp}\nManual PayPal Transaction ID: ${state.paypalTransactionNumber}`;
+
+          updatedLabels = ['automatched', 'manual-match'];
         }
 
         const updatedTransaction: StandardisedTransaction = {
@@ -202,6 +215,7 @@ const transactionMatcherReducer = (
           paypalTransactionId: state.paypalTransactionNumber,
           Payee: state.payeeName,
           Note: updatedNote,
+          Labels: updatedLabels,
           manuallyMatched: true,
         };
 
@@ -214,11 +228,16 @@ const transactionMatcherReducer = (
             (_, index) => index !== state.currentUnmatchedIndex
           ) || [];
 
+        const nextIndex =
+          (state.currentUnmatchedIndex || 0) >= updatedUnmatched.length
+            ? Math.max(0, updatedUnmatched.length - 1)
+            : state.currentUnmatchedIndex || 0;
+
         return {
           ...state,
           manuallyMatchedTransactions: updatedManualMatches,
           unmatchedTransactions: updatedUnmatched,
-          currentUnmatchedIndex: state.currentUnmatchedIndex,
+          currentUnmatchedIndex: nextIndex,
           waitingForUserInput: updatedUnmatched.length > 0,
           userFoundMatch: undefined,
           paypalTransactionNumber: undefined,
@@ -241,7 +260,8 @@ const transactionMatcherReducer = (
     case ActionTypes.RESOLVE_PAYPAL_ID_CONFLICT:
       const resolutionPayload = action.payload as { keepExisting: boolean };
       if (state.paypalIdConflict) {
-        const { existingTransaction, currentTransaction } = state.paypalIdConflict;
+        const { existingTransaction, currentTransaction } =
+          state.paypalIdConflict;
 
         if (resolutionPayload.keepExisting) {
           const updatedUnmatched = [
@@ -279,16 +299,28 @@ const transactionMatcherReducer = (
             t => t.paypalTransactionId === paypalTransactionNumber
           );
 
-          const manualMatchTimestamp = DateTime.now().setZone('Europe/London').toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS);
+          const manualMatchTimestamp = DateTime.now()
+            .setZone('Europe/London')
+            .toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS);
 
           let updatedNote: string;
+          let updatedLabels: string[];
+
           if (processedTransaction) {
-            updatedNote = processedTransaction.Note.replace(
-              /^Automatched from Paypal/,
-              `Manually matched from Paypal`
-            ) + `\nManually matched on ${manualMatchTimestamp}`;
+            updatedNote =
+              processedTransaction.Note.replace(
+                /^Automatched from Paypal/,
+                `Manually matched from Paypal`
+              ) + `\nManually matched on ${manualMatchTimestamp}`;
+
+            updatedLabels = [...(processedTransaction.Labels || [])];
+            if (!updatedLabels.includes('manual-match')) {
+              updatedLabels.push('manual-match');
+            }
           } else {
             updatedNote = `${currentTransaction.Note}\nManually matched on ${manualMatchTimestamp}\nManual PayPal Transaction ID: ${paypalTransactionNumber}`;
+
+            updatedLabels = ['automatched', 'manual-match'];
           }
 
           const updatedTransaction: StandardisedTransaction = {
@@ -296,6 +328,7 @@ const transactionMatcherReducer = (
             paypalTransactionId: paypalTransactionNumber,
             Payee: payeeName,
             Note: updatedNote,
+            Labels: updatedLabels,
             manuallyMatched: true,
           };
 
@@ -312,11 +345,17 @@ const transactionMatcherReducer = (
             updatedTransaction,
           ];
 
+          const nextIndexAfterConflict =
+            (state.currentUnmatchedIndex || 0) >= updatedUnmatched.length
+              ? Math.max(0, updatedUnmatched.length - 1)
+              : state.currentUnmatchedIndex || 0;
+
           return {
             ...state,
             successfullyMatchedTransactions: autoMatched,
             manuallyMatchedTransactions: manualMatched,
             unmatchedTransactions: updatedUnmatched,
+            currentUnmatchedIndex: nextIndexAfterConflict,
             paypalIdConflict: undefined,
             waitingForConflictResolution: false,
             waitingForUserInput: updatedUnmatched.length > 0,
@@ -353,20 +392,28 @@ const transactionMatcherReducer = (
         currentMatchIndex: action.payload as number,
       };
     case ActionTypes.CONFIRM_MATCH:
-      const confirmedTransaction = state.successfullyMatchedTransactions?.[state.currentMatchIndex || 0];
+      const confirmedTransaction =
+        state.successfullyMatchedTransactions?.[state.currentMatchIndex || 0];
       if (confirmedTransaction) {
         return {
           ...state,
-          confirmedMatches: [...(state.confirmedMatches || []), confirmedTransaction],
+          confirmedMatches: [
+            ...(state.confirmedMatches || []),
+            confirmedTransaction,
+          ],
         };
       }
       return state;
     case ActionTypes.REJECT_MATCH:
-      const rejectedTransaction = state.successfullyMatchedTransactions?.[state.currentMatchIndex || 0];
+      const rejectedTransaction =
+        state.successfullyMatchedTransactions?.[state.currentMatchIndex || 0];
       if (rejectedTransaction) {
         return {
           ...state,
-          rejectedMatches: [...(state.rejectedMatches || []), rejectedTransaction],
+          rejectedMatches: [
+            ...(state.rejectedMatches || []),
+            rejectedTransaction,
+          ],
         };
       }
       return state;

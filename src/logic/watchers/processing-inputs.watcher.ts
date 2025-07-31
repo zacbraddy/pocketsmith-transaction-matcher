@@ -1,9 +1,6 @@
-import { Dispatch, useEffect } from 'react';
+import { Dispatch, useCallback, useEffect } from 'react';
 import { Action } from '../actions/action.types';
-import {
-  StepTypes,
-  TransactionMatcherState,
-} from '../types';
+import { StepTypes, TransactionMatcherState } from '../types';
 import {
   csvProcessingStart,
   csvProcessingSuccess,
@@ -15,7 +12,7 @@ const useProcessingInputsWatcher = (
   state: TransactionMatcherState,
   dispatch: Dispatch<Action>
 ) => {
-  const doCSVProcessing = async () => {
+  const doCSVProcessing = useCallback(async () => {
     try {
       const standardisedTransactions = await processCSVFiles({
         baseCurrency: 'GBP',
@@ -29,7 +26,7 @@ const useProcessingInputsWatcher = (
         )
       );
     }
-  };
+  }, [dispatch]);
 
   useEffect(() => {
     if (
@@ -40,7 +37,7 @@ const useProcessingInputsWatcher = (
 
       doCSVProcessing();
     }
-  }, [state.currentStep, state.transactions, dispatch]);
+  }, [state.currentStep, state.transactions, dispatch, doCSVProcessing]);
 };
 
 export default useProcessingInputsWatcher;
